@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "agama-cli",
+  "agama-hackweek-ancor",
   "agama-dbus-server",
   "agama-derive",
   "agama-lib",
