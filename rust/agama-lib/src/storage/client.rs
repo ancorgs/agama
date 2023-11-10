@@ -12,8 +12,8 @@ use zbus::Connection;
 /// Represents a storage device
 #[derive(Serialize, Debug)]
 pub struct StorageDevice {
-    name: String,
-    description: String,
+    pub name: String,
+    pub description: String,
 }
 
 /// D-Bus client for the storage service
