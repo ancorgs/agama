@@ -24,8 +24,10 @@ import { Grid, GridItem } from "@patternfly/react-core";
 import { Page } from "~/components/core/";
 import ProposalTransactionalInfo from "./ProposalTransactionalInfo";
 import ProposalSettingsSection from "./ProposalSettingsSection";
+import ProposalActionsSection from "./ProposalActionsSection";
 import ProposalResultSection from "./ProposalResultSection";
 import { _ } from "~/i18n";
+import { SPACE_POLICIES } from "~/components/storage/utils";
 import { IDLE } from "~/client/status";
 import { useInstallerClient } from "~/context/installer";
 import { toValidationError, useCancellablePromise } from "~/utils";
@@ -253,6 +255,9 @@ export default function ProposalPage() {
     calculate(newSettings).catch(console.error);
   };
 
+  const spacePolicy = SPACE_POLICIES.find(p => p.id === state.settings.spacePolicy);
+  const { spaceActions = [] } = state.settings;
+
   /**
    * @todo Enable type checking and ensure the components are called with the correct props.
    *
@@ -277,19 +282,32 @@ export default function ProposalPage() {
               encryptionMethods={state.encryptionMethods}
               volumeTemplates={state.volumeTemplates}
               settings={state.settings}
-              onChange={changeSettings}
               isLoading={state.loading}
               changing={state.changing}
             />
           </GridItem>
           <GridItem sm={12} xl={6}>
-            <ProposalResultSection
-              system={state.system}
-              staging={state.staging}
-              actions={state.actions}
-              errors={state.errors}
-              isLoading={state.loading}
-            />
+            <Grid hasGutter>
+              <GridItem sm={12} xl2={6}>
+                <ProposalActionsSection
+                  system={state.system}
+                  staging={state.staging}
+                  actions={state.actions}
+                  isLoading={state.loading}
+                />
+              </GridItem>
+              <GridItem sm={12} xl2={6}>
+                <ProposalResultSection
+                  system={state.system}
+                  staging={state.staging}
+                  actions={state.actions}
+                  errors={state.errors}
+                  policy={spacePolicy}
+                  spaceActions={spaceActions}
+                  isLoading={state.loading}
+                />
+              </GridItem>
+            </Grid>
           </GridItem>
         </Grid>
       </Page.MainContent>

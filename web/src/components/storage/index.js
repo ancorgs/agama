@@ -24,6 +24,7 @@ export { default as ProposalSettingsSection } from "./ProposalSettingsSection";
 export { default as ProposalTransactionalInfo } from "./ProposalTransactionalInfo";
 export { default as ProposalActionsDialog } from "./ProposalActionsDialog";
 export { default as ProposalResultSection } from "./ProposalResultSection";
+export { default as ProposalActionsSection } from "./ProposalActionsSection";
 export { default as DASDPage } from "./DASDPage";
 export { default as DASDTable } from "./DASDTable";
 export { default as DASDFormatProgress } from "./DASDFormatProgress";

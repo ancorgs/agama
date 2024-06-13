@@ -46,63 +46,6 @@ import textStyles from '@patternfly/react-styles/css/utilities/Text/text';
  */
 
 /**
- * Renders information about planned actions, allowing to check all of them and warning with a
- * summary about the deletion ones, if any.
- * @component
- *
- * @param {object} props
- * @param {Action[]} props.actions
- * @param {string[]} props.systems
- */
-const DeletionsInfo = ({ actions, systems }) => {
-  const total = actions.length;
-
-  if (total === 0) return;
-
-  // TRANSLATORS: %d will be replaced by the amount of destructive actions
-  const warningTitle = sprintf(n_(
-    "There is %d destructive action planned",
-    "There are %d destructive actions planned",
-    total
-  ), total);
-
-  // FIXME: Use the Intl.ListFormat instead of the `join(", ")` used below.
-  // Most probably, a `listFormat` or similar wrapper should live in src/i18n.js or so.
-  // Read https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/ListFormat
-  return (
-    <Alert isInline isPlain variant="warning" title={warningTitle}>
-      {systems.length > 0 &&
-        <p>
-          {
-            // TRANSLATORS: This is part of a sentence to hint the user about affected systems.
-            // Eg. "Affecting Windows 11, openSUSE Leap 15, and Ubuntu 22.04"
-          }
-          {_("Affecting")} <strong>{systems.join(", ")}</strong>
-        </p>}
-    </Alert>
-  );
-};
-
-/**
- * Renders needed UI elements to allow user check the proposal planned actions
- * @component
- *
- * @param {object} props
- * @param {Action[]} props.actions
- */
-const ActionsInfo = ({ numActions, onClick }) => {
-  // TRANSLATORS: %d will be replaced by the number of proposal actions.
-  const text = sprintf(
-    n_("Check the planned action", "Check the %d planned actions", numActions),
-    numActions
-  );
-
-  return (
-    <Button onClick={onClick} variant="link" isInline>{text}</Button>
-  );
-};
-
-/**
  * @todo Create a component for rendering a customized skeleton
  */
 const ResultSkeleton = () => {
@@ -150,11 +93,6 @@ const SectionContent = ({ system, staging, actions, errors, isLoading, onActions
 
   return (
     <Stack hasGutter>
-      <DeletionsInfo
-        actions={devicesManager.actions.filter(a => a.delete && !a.subvol)}
-        systems={devicesManager.deletedSystems()}
-      />
-      <ActionsInfo numActions={totalActions} onClick={onActionsClick} />
       <ProposalResultTable devicesManager={devicesManager} />
     </Stack>
   );
@@ -185,48 +123,29 @@ export default function ProposalResultSection({
   const openDrawer = () => setDrawerOpen(true);
   const closeDrawer = () => setDrawerOpen(false);
 
-  const description = _("During installation, some actions will be performed to configure the system as displayed below.");
+  const description = _("The system will be configured as displayed below.");
 
   return (
     <Card isCompact isRounded isFullHeight>
-      <Drawer isExpanded={drawerOpen}>
-        <DrawerContent panelContent={
-          <DrawerPanelContent focusTrap={{ enabled: true }}>
-            <DrawerHead>
-              <h4>{_("Planned Actions")}</h4>
-              <DrawerActions>
-                <DrawerCloseButton onClick={closeDrawer} />
-              </DrawerActions>
-            </DrawerHead>
-            <DrawerPanelBody>
-              <ProposalActionsDialog actions={actions} />
-            </DrawerPanelBody>
-          </DrawerPanelContent>
-        }
-        >
-          <DrawerContentBody>
-            <CardHeader>
-              <CardTitle>
-                <h3>{_("Result")}</h3>
-              </CardTitle>
-            </CardHeader>
-            <CardBody>
-              <div className={textStyles.color_200}>{description}</div>
-            </CardBody>
-            <CardBody>
-              <SectionErrors errors={errors} />
-              <SectionContent
-                system={system}
-                staging={staging}
-                actions={actions}
-                errors={errors}
-                isLoading={isLoading}
-                onActionsClick={openDrawer}
-              />
-            </CardBody>
-          </DrawerContentBody>
-        </DrawerContent>
-      </Drawer>
+      <CardHeader>
+        <CardTitle>
+          <h3>{_("Final Layout")}</h3>
+        </CardTitle>
+      </CardHeader>
+      <CardBody>
+        <div className={textStyles.color_200}>{description}</div>
+      </CardBody>
+      <CardBody>
+        <SectionErrors errors={errors} />
+        <SectionContent
+          system={system}
+          staging={staging}
+          actions={actions}
+          errors={errors}
+          isLoading={isLoading}
+          onActionsClick={openDrawer}
+        />
+      </CardBody>
     </Card>
   );
 }

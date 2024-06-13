@@ -178,15 +178,6 @@ export default function ProposalSettingsSection({
           onBootChange={changeBoot}
         />
       </GridItem>
-      <GridItem>
-        <SpacePolicyField
-          policy={spacePolicy}
-          actions={spaceActions}
-          devices={installationDevices}
-          isLoading={showSkeleton(isLoading, "SpacePolicyField", changing)}
-          onChange={changeSpacePolicy}
-        />
-      </GridItem>
     </Grid>
   );
 }
