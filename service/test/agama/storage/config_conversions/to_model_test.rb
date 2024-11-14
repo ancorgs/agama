@@ -19,14 +19,31 @@
 # To contact SUSE LLC about this file by physical or electronic mail, you may
 # find current contact information at www.suse.com.
 
-require "agama/storage/config_conversions/from_json"
-require "agama/storage/config_conversions/to_json"
-require "agama/storage/config_conversions/to_model"
+require_relative "../../../test_helper"
+require "agama/storage/config_conversions"
+require "y2storage/refinements"
 
-module Agama
-  module Storage
-    # Conversions for the storage config.
-    module ConfigConversions
+using Y2Storage::Refinements::SizeCasts
+
+describe Agama::Storage::ConfigConversions::ToModel do
+  before do
+    # Speed up tests by avoding real check of TPM presence.
+    allow(Y2Storage::EncryptionMethod::TPM_FDE).to receive(:possible?).and_return(true)
+  end
+
+  subject { described_class.new(config) }
+
+  let(:config) do
+    Agama::Storage::ConfigConversions::FromJSON
+      .new(config_json)
+      .convert
+  end
+
+  describe "#convert" do
+    let(:config_json) { {} }
+
+    it "returns a Hash" do
+      expect(subject.convert).to be_a(Hash)
     end
   end
 end
