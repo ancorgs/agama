@@ -20,30 +20,22 @@
 # find current contact information at www.suse.com.
 
 require "agama/storage/config_conversions/to_model_conversions/base"
-# require "agama/storage/config_conversions/to_json_conversions/with_encryption"
+# require "agama/storage/config_conversions/to_model_conversions/with_encryption"
 require "agama/storage/config_conversions/to_model_conversions/with_filesystem"
-require "agama/storage/config_conversions/to_model_conversions/with_space_policy"
-require "agama/storage/config_conversions/to_model_conversions/with_partitions"
-# require "agama/storage/config_conversions/to_json_conversions/with_ptable_type"
-# require "agama/storage/config_conversions/to_json_conversions/with_search"
-require "agama/storage/configs/drive"
+require "agama/storage/configs/partition"
 
 module Agama
   module Storage
     module ConfigConversions
       module ToModelConversions
-        # Drive conversion to JSON hash according to schema.
-        class Drive < Base
-          # include WithSearch
+        # Partition conversion to JSON hash according to schema.
+        class Partition < Base
           # include WithEncryption
           include WithFilesystem
-          include WithSpacePolicy
-          # include WithPtableType
-          include WithPartitions
 
           # @see Base
           def self.config_type
-            Configs::Drive
+            Configs::Partition
           end
 
         private
@@ -53,11 +45,14 @@ module Agama
             {
               name:       config.found_device&.name,
               alias:      config.alias,
+              id:         config.id&.to_s,
               mountPath: config.filesystem&.path,
               filesystem: convert_filesystem,
-              spacePolicy: convert_space_policy,
-              ptableType: config.ptable_type&.to_s,
-              partitions: convert_partitions
+              # size:       convert_size,
+              delete: config.delete?,
+              deleteIfNeeded: config.delete_if_needed?,
+              # resize: convert_resize,
+              # resizeIfNeeded: convert_resize_if_needed
             }
           end
         end

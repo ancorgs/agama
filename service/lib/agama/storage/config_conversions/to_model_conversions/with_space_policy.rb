@@ -19,37 +19,19 @@
 # To contact SUSE LLC about this file by physical or electronic mail, you may
 # find current contact information at www.suse.com.
 
-require "agama/storage/config"
-require "agama/storage/config_conversions/to_model_conversions/base"
-# require "agama/storage/config_conversions/to_json_conversions/boot"
-require "agama/storage/config_conversions/to_model_conversions/drive"
-# require "agama/storage/config_conversions/to_json_conversions/volume_group"
+require "agama/storage/config_conversions/to_model_conversions/space_policy"
 
 module Agama
   module Storage
     module ConfigConversions
       module ToModelConversions
-        # Config conversion to JSON hash according to model schema.
-        class Config < Base
-          # @see Base
-          def self.config_type
-            Storage::Config
-          end
+        # Mixin for filesystem conversion to JSON.
+        module WithSpacePolicy
+          # @return [Hash, nil]
+          def convert_space_policy
+            return unless config.respond_to?(:partitions)
 
-        private
-
-          # @see Base#conversions
-          def conversions
-            { drives: convert_drives }
-          end
-
-          # @return [Array<Hash>]
-          def convert_drives
-            valid_drives.map { |d| ToModelConversions::Drive.new(d).convert }
-          end
-
-          def valid_drives
-            config.drives.select(&:found_device)
+            ToModelConversions::SpacePolicy.new(config).convert
           end
         end
       end
