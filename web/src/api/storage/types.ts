@@ -21,6 +21,7 @@
  */
 
 import * as config from "./types/config";
+import * as configModel from "./types/config_model";
 
 export * from "./types/openapi";
-export { config };
+export { config, configModel };

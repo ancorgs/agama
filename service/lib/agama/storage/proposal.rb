@@ -23,6 +23,7 @@ require "agama/issue"
 require "agama/storage/actions_generator"
 require "agama/storage/config_conversions/from_json"
 require "agama/storage/config_conversions/to_json"
+require "agama/storage/config_conversions/to_model"
 require "agama/storage/proposal_settings"
 require "agama/storage/proposal_strategies"
 require "json"
@@ -95,6 +96,13 @@ module Agama
         else
           {}
         end
+      end
+
+      def model_json
+        config = config(solved: true)
+        return nil.to_json unless config
+
+        ConfigConversions::ToModel.new(config).convert
       end
 
       # Calculates a new proposal using the given JSON.
