@@ -38,11 +38,31 @@ module Agama
           # @see Base#conversions
           def conversions
             {
-              # TODO
-              default: false,
-              type: config.type&.fs_type&.to_s,
-              snapshots: config.btrfs_snapshots?
+              default: convert_default,
+              type: convert_type,
+              snapshots: convert_snapshots
             }
+          end
+
+          # @return [Boolean, nil]
+          def convert_default
+            return unless config.type
+
+            config.type.default?
+          end
+
+          # @return [String, nil]
+          def convert_type
+            return unless config.type&.fs_type
+
+            config.type.fs_type.to_s
+          end
+
+          # @return [Boolean, nil]
+          def convert_snapshots
+            return unless config.type&.fs_type&.is?(:btrfs)
+
+            config.type.btrfs&.snapshots?
           end
         end
       end
