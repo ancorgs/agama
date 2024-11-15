@@ -27,6 +27,44 @@ require "y2storage/refinements"
 
 using Y2Storage::Refinements::SizeCasts
 
+shared_examples "without alias" do |result_scope|
+  it "generates the expected JSON" do
+    model_json = result_scope.call(subject.convert)
+    expect(model_json.keys).to_not include(:alias)
+  end
+end
+
+shared_examples "without filesystem" do |result_scope|
+  it "generates the expected JSON" do
+    model_json = result_scope.call(subject.convert)
+    expect(model_json.keys).to_not include(:mountPath)
+    expect(model_json.keys).to_not include(:filesystem)
+  end
+end
+
+shared_examples "without ptable_type" do |result_scope|
+  it "generates the expected JSON" do
+    model_json = result_scope.call(subject.convert)
+    expect(model_json.keys).to_not include(:ptableType)
+  end
+end
+
+shared_examples "without partitions" do |result_scope|
+  it "generates the expected JSON" do
+    model_json = result_scope.call(subject.convert)
+    expect(model_json[:partitions]).to eq([])
+  end
+end
+
+shared_examples "with alias" do |result_scope|
+  let(:device_alias) { "test" }
+
+  it "generates the expected JSON" do
+    model_json = result_scope.call(subject.convert)
+    expect(model_json[:alias]).to eq("test")
+  end
+end
+
 describe Agama::Storage::ConfigConversions::ToModel do
   include Agama::RSpec::StorageHelpers
 
@@ -124,7 +162,7 @@ describe Agama::Storage::ConfigConversions::ToModel do
               {
                 alias: "root",
                 id: "linux",
-                filesystem: { path: "/" }
+                filesystem: { path: "/", type: "xfs" }
               }
             ]
           }
@@ -145,9 +183,103 @@ describe Agama::Storage::ConfigConversions::ToModel do
     # end
 
     it "returns a Hash" do
-      model = subject.convert
-      pp model
-      expect(model).to be_a(Hash)
+      expect(subject.convert).to be_a(Hash)
+    end
+
+    context "with the default config" do
+      let(:config_json) { {} }
+
+      it "generates the expected JSON" do
+        expect(subject.convert).to eq(
+          {
+            drives: []
+          }
+        )
+      end
+    end
+
+    context "if #drives is configured" do
+      let(:config_json) do
+        { drives: drives }
+      end
+
+      let(:drives) do
+        [
+          drive,
+          {}
+        ]
+      end
+
+      let(:drive) { {} }
+
+      it "generates the expected JSON for 'drives'" do
+        drives_json = subject.convert[:drives]
+
+        expect(drives_json).to eq(
+          [
+            { name: "/dev/vda", spacePolicy: "keep", partitions: [] },
+            { name: "/dev/vdb", spacePolicy: "keep", partitions: [] }
+          ]
+        )
+      end
+
+      context "if a device is not found for a drive" do
+        let(:drive) { { search: "/dev/vdd" } }
+
+        it "generates the expected JSON for 'drives'" do
+          drives_json = subject.convert[:drives]
+
+          expect(drives_json).to eq(
+            [
+              { name: "/dev/vda", spacePolicy: "keep", partitions: [] }
+            ]
+          )
+        end
+      end
+
+      context "if a device is found for a drive" do
+        let(:drive) { { search: "/dev/vda" } }
+
+        it "generates the expected JSON for 'drives'" do
+          drives_json = subject.convert[:drives]
+
+          expect(drives_json).to eq(
+            [
+              { name: "/dev/vda", spacePolicy: "keep", partitions: [] },
+              { name: "/dev/vdb", spacePolicy: "keep", partitions: [] }
+            ]
+          )
+        end
+      end
+
+      drive_result_scope = proc { |c| c[:drives].first }
+      drive_scope = proc { |c| c.drives.first }
+
+      context "if #alias is not configured for a drive" do
+        let(:drive) { {} }
+        include_examples "without alias", drive_result_scope
+      end
+
+      context "if #filesystem is not configured for a drive" do
+        let(:drive) { {} }
+        include_examples "without filesystem", drive_result_scope
+      end
+
+      context "if #ptable_type is not configured for a drive" do
+        let(:drive) { {} }
+        include_examples "without ptable_type", drive_result_scope
+      end
+
+      context "if #partitions is not configured for a drive" do
+        let(:drive) { {} }
+        include_examples "without partitions", drive_result_scope
+      end
+
+      context "if #alias is configured for a drive" do
+        let(:drive) { { alias: device_alias } }
+        include_examples "with alias", drive_result_scope
+      end
+
     end
   end
 end
