@@ -36,20 +36,20 @@ const label = (drive: DriveElement): string => {
 };
 
 const spacePolicyEntry = (drive: DriveElement): SpacePolicy => {
-  return SPACE_POLICIES.find((p) => p.id === drive.spacePolicy);
-}
+  return SPACE_POLICIES.find((p) => p.id === "custom");//drive.spacePolicy);
+};
 
 const deleteTextFor = (partitions) => {
   const mandatory = partitions.filter((p) => p.delete).length;
   const onDemand = partitions.filter((p) => p.deleteIfNeeded).length;
 
   if (mandatory === 0 && onDemand === 0) return;
-  if (mandatory === 1 && onDemand === 0) return _("A partition will be deleted.");
-  if (mandatory === 1) return _("At least one partition will be deleted.");
-  if (mandatory > 1) return _("Several partitions will be deleted.");
-  if (onDemand === 1) return _("A partition may be deleted.");
+  if (mandatory === 1 && onDemand === 0) return _("A partition will be deleted");
+  if (mandatory === 1) return _("At least one partition will be deleted");
+  if (mandatory > 1) return _("Several partitions will be deleted");
+  if (onDemand === 1) return _("A partition may be deleted");
 
-  return _("Some partitions may be deleted.");
+  return _("Some partitions may be deleted");
 };
 
 /**
@@ -60,21 +60,23 @@ const resizeTextFor = (partitions) => {
   const count = partitions.filter((p) => p.size?.min === 0).length;
 
   if (count === 0) return;
-  if (count === 1) return _("A partition may be shrunk.");
+  if (count === 1) return _("A partition may be shrunk");
 
-  return _("Some partitions may be shrunk.");
+  return _("Some partitions may be shrunk");
 };
 
 /**
  * FIXME: right now, this considers only the case in which the drive is going to be partitioned. If
  * it's directly used (as LVM PV, as MD member, to host a filesystem...) the content wil be deleted
  * anyways. That must be properly stated.
+ *
+ * FIXME: the case with two sentences looks a bit weird. But trying to summarize everything in one
+ * sentence was too hard.
  */
-const oldContentActionsDescription = (drive: DriveElement): string => {
+const contentActionsDescription = (drive: DriveElement): string => {
   const policyLabel = spacePolicyEntry(drive).summaryLabel;
 
   if (policyLabel) return _(policyLabel);
-
 
   const partitions = drive.partitions.filter((p) => p.name);
   const deleteText = deleteTextFor(partitions);
@@ -84,7 +86,7 @@ const oldContentActionsDescription = (drive: DriveElement): string => {
     // TRANSLATORS: this simply concatenates the two sentences that describe what is going to happen
     // with partitions. The first %s corresponds to deleted partitions and the second one to resized
     // ones.
-    return sprintf(_("%s %s"), deleteText, resizeText);
+    return sprintf(_("%s - %s"), deleteText, resizeText);
   }
 
   if (deleteText) return deleteText;
@@ -98,11 +100,10 @@ const oldContentActionsDescription = (drive: DriveElement): string => {
  * partitions.
  */
 const contentDescription = (drive: DriveElement): string => {
-  const partitions = drive.partitions.filter((p) => !p.name)
+  const partitions = drive.partitions.filter((p) => !p.name);
 
   // FIXME: this is one of the several cases we need to handle better
   if (partitions.length === 0) return "";
-
 
   const mountPaths = partitions.map((p) => formattedPath(p.mountPath));
   return sprintf(
@@ -111,15 +112,41 @@ const contentDescription = (drive: DriveElement): string => {
     n_(
       "A new partition will be created for %s",
       "New partitions will be created for %s",
-      mountPaths.length
+      mountPaths.length,
     ),
-    formatList(mountPaths)
+    formatList(mountPaths),
   );
 };
 
+const hasFilesystem = (drive: DriveElement): boolean => {
+  return drive.partitions && drive.partitions.some((p) => p.mountPath);
+};
+
+const hasRoot = (drive: DriveElement): boolean => {
+  return drive.partitions && drive.partitions.some((p) => p.mountPath && p.mountPath === "/");
+};
+
+const hasReuse = (drive: DriveElement): boolean => {
+  return drive.partitions && drive.partitions.some((p) => p.mountPath && p.name);
+};
+
+const hasPv = (drive: DriveElement): boolean => {
+  return drive.volumeGroups && drive.volumeGroups.length > 0;
+};
+
+const explicitBoot = (drive: DriveElement): boolean => {
+  return true;
+  return drive.boot && drive.boot === "explicit";
+};
+
 export {
+  hasPv,
+  hasReuse,
+  hasFilesystem,
+  hasRoot,
+  explicitBoot,
   label,
   spacePolicyEntry,
-  oldContentActionsDescription,
-  contentDescription
+  contentActionsDescription,
+  contentDescription,
 };

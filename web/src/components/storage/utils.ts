@@ -71,19 +71,21 @@ const SPACE_POLICIES: SpacePolicy[] = [
   {
     id: "delete",
     label: N_("Delete current content"),
-    summaryLabel: N_("All content will be deleted."),
-    description: N_("Any existing partition will be removed and all data in the disk will be lost."),
+    summaryLabel: N_("All content will be deleted"),
+    description: N_(
+      "Any existing partition will be removed and all data in the disk will be lost.",
+    ),
   },
   {
     id: "resize",
     label: N_("Shrink existing partitions"),
-    summaryLabel: N_("Some existing partitions may be shrunk."),
+    summaryLabel: N_("Some existing partitions may be shrunk"),
     description: N_("The data is kept, but the current partitions will be resized as needed."),
   },
   {
     id: "keep",
     label: N_("Use available space"),
-    summaryLabel: N_("Content will be kept."),
+    summaryLabel: N_("Content will be kept"),
     description: N_("The data is kept. Only the space not assigned to any partition will be used."),
   },
   {
@@ -265,7 +267,7 @@ const formattedPath = (path: string): string => {
   // TRANSLATORS: sub-string used to represent a path like "/" or "/var". %s is replaced by the path
   // itself, the rest of the string (quotation marks in the English case) is used to encapsulate the
   // path in a bigger sentence like 'Create partitions for "/" and "/var"'.
-  return sprintf(_("\"%s\""), path);
+  return sprintf(_('"%s"'), path);
 };
 
 export {
