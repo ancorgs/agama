@@ -67,13 +67,13 @@ module Agama
           end
 
           def search_all?(partition_config)
-            partition_config.search &&
+            !partition_config.search.nil? &&
               partition_config.search.always_match? &&
               partition_config.search.max.nil?
           end
 
           def shrink_all?(partition_config)
-            partition_config.size && partition_config.size.min.to_i == 0
+            !partition_config.size.nil? && partition_config.size.min.to_i == 0
           end
         end
       end

@@ -120,7 +120,7 @@ describe Agama::Storage::ConfigConversions::ToModel do
         drives: [
           {
             partitions: [
-              { search: "*", size: "1 GiB", deleteIfNeeded: true },
+              { search: "*", size: { min: 3 }, deleteIfNeeded: true },
               {
                 alias: "root",
                 id: "linux",

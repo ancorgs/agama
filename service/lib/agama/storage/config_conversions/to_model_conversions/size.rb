@@ -20,22 +20,17 @@
 # find current contact information at www.suse.com.
 
 require "agama/storage/config_conversions/to_model_conversions/base"
-require "agama/storage/config_conversions/to_model_conversions/with_filesystem"
-require "agama/storage/config_conversions/to_model_conversions/with_size"
-require "agama/storage/configs/partition"
+require "agama/storage/configs/size"
 
 module Agama
   module Storage
     module ConfigConversions
       module ToModelConversions
-        # Partition conversion to JSON hash according to schema.
-        class Partition < Base
-          include WithFilesystem
-          include WithSize
-
+        # Size conversion to JSON hash according to schema.
+        class Size < Base
           # @see Base
           def self.config_type
-            Configs::Partition
+            Configs::Size
           end
 
         private
@@ -43,29 +38,18 @@ module Agama
           # @see Base#conversions
           def conversions
             {
-              name:       config.found_device&.name,
-              alias:      config.alias,
-              id:         config.id&.to_s,
-              mountPath: config.filesystem&.path,
-              filesystem: convert_filesystem,
-              size:       convert_size,
-              delete: config.delete?,
-              deleteIfNeeded: config.delete_if_needed?,
-              resize: convert_resize,
-              resizeIfNeeded: convert_resize_if_needed
+              default: config.default?,
+              min: config.min&.to_i,
+              max: convert_max_size
             }
           end
 
-          def convert_resize
-            size = config.size
+          # @return [Integer, nil]
+          def convert_max_size
+            max = config.max
+            return if max.nil? || max.unlimited?
 
-            !size.nil? && !size.default? && size.min == size.max
-          end
-
-          def convert_resize_if_needed
-            size = config.size
-
-            !size.nil? && !size.default? && size.min != size.max
+            max.to_i
           end
         end
       end
