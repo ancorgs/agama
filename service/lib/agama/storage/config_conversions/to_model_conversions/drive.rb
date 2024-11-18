@@ -52,6 +52,7 @@ module Agama
           def conversions
             {
               name:       config.found_device&.name,
+              boot:       false,
               alias:      config.alias,
               mountPath: config.filesystem&.path,
               filesystem: convert_filesystem,

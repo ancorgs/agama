@@ -217,8 +217,8 @@ describe Agama::Storage::ConfigConversions::ToModel do
 
         expect(drives_json).to eq(
           [
-            { name: "/dev/vda", spacePolicy: "keep", partitions: [] },
-            { name: "/dev/vdb", spacePolicy: "keep", partitions: [] }
+            { name: "/dev/vda", boot: false, spacePolicy: "keep", partitions: [] },
+            { name: "/dev/vdb", boot: false, spacePolicy: "keep", partitions: [] }
           ]
         )
       end
@@ -231,7 +231,7 @@ describe Agama::Storage::ConfigConversions::ToModel do
 
           expect(drives_json).to eq(
             [
-              { name: "/dev/vda", spacePolicy: "keep", partitions: [] }
+              { name: "/dev/vda", boot: false, spacePolicy: "keep", partitions: [] }
             ]
           )
         end
@@ -245,8 +245,8 @@ describe Agama::Storage::ConfigConversions::ToModel do
 
           expect(drives_json).to eq(
             [
-              { name: "/dev/vda", spacePolicy: "keep", partitions: [] },
-              { name: "/dev/vdb", spacePolicy: "keep", partitions: [] }
+              { name: "/dev/vda", boot: false, spacePolicy: "keep", partitions: [] },
+              { name: "/dev/vdb", boot: false, spacePolicy: "keep", partitions: [] }
             ]
           )
         end

@@ -45,7 +45,10 @@ module Agama
 
           # @return [Array<Hash>]
           def convert_drives
-            valid_drives.map { |d| ToModelConversions::Drive.new(d).convert }
+            drives = valid_drives.map { |d| ToModelConversions::Drive.new(d).convert }
+            boot_drive = drives.find { |d| d[:name] == config.boot_device }
+            boot_drive[:boot] = true if boot_drive
+            drives
           end
 
           def valid_drives

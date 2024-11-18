@@ -17,6 +17,7 @@
       "properties": {
         "name": { "type": "string" },
         "alias": { "type": "string" },
+        "boot": { "type": "boolean" },
         "mountPath": { "type": "string" },
         "filesystem": { "$ref": "#/$defs/filesystem" },
         "spacePolicy": { "$ref": "#/$defs/spacePolicy" },

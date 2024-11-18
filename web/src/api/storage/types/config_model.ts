@@ -37,6 +37,7 @@ export interface Drive {
   alias?: string;
   mountPath?: string;
   filesystem?: Filesystem;
+  boot?: boolean;
   spacePolicy?: SpacePolicy;
   ptableType?: PtableType;
   partitions?: Partition[];
