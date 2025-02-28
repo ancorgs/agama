@@ -1295,5 +1295,66 @@ describe Y2Storage::AgamaProposal do
         end
       end
     end
+
+    context "when redundant labels are set" do
+      let(:scenario) { "disks.yaml" }
+
+      let(:config_json) do
+        {
+          drives: [
+            {
+              search:     "/dev/vdb",
+              partitions: [
+                {
+                  filesystem: { type: "btrfs", path: "/", label: "previous_root" }
+                },
+                {
+                  filesystem: { type: "xfs", path: "/home", label: "previous_root" }
+                }
+              ]
+            }
+          ]
+        }
+      end
+
+      it "assigns the given labels without preventing repetitions" do
+        devicegraph = proposal.propose
+        labeled = devicegraph.filesystems.select { |f| f.label == "previous_root" }
+        # One pre-existing (vda2) and the two new ones
+        expect(labeled.size).to eq 3
+      end
+    end
+
+    context "when incorrectly labels are set" do
+      let(:scenario) { "disks.yaml" }
+      # According to libstorage-ng, the max length for an XFS label is 12 chars
+      let(:xfs_label) { "very-long123456789012345" }
+      let(:btrfs_label) { "/this is(*clearly|wrong/" }
+
+      let(:config_json) do
+        {
+          drives: [
+            {
+              search:     "/dev/vdb",
+              partitions: [
+                {
+                  filesystem: { type: "btrfs", path: "/", label: btrfs_label }
+                },
+                {
+                  filesystem: { type: "xfs", path: "/home", label: xfs_label }
+                }
+              ]
+            }
+          ]
+        }
+      end
+
+      it "tries to assigns the given labels without checking (will fail during commit)" do
+        devicegraph = proposal.propose
+        labels = devicegraph.filesystems.map { |f| f.label }.compact
+        expect(labels).to include xfs_label
+        expect(labels).to include btrfs_label
+      end
+    end
   end
 end
