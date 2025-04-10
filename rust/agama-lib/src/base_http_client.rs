@@ -43,7 +43,7 @@ use crate::{auth::AuthToken, error::ServiceError};
 
 #[derive(Clone)]
 pub struct BaseHTTPClient {
-    pub client: reqwest::Client,
+    client: reqwest::Client,
     insecure: bool,
     pub base_url: String,
 }
@@ -270,7 +270,7 @@ impl BaseHTTPClient {
     }
 
     /// Return deserialized JSON body as `Ok(T)` or an `Err` with [`ServiceError::BackendError`]
-    pub async fn deserialize_or_error<T>(&self, response: Response) -> Result<T, ServiceError>
+    async fn deserialize_or_error<T>(&self, response: Response) -> Result<T, ServiceError>
     where
         T: DeserializeOwned,
     {

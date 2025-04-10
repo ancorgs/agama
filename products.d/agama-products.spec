@@ -34,11 +34,8 @@ Products definition for Agama installer.
 %build
 
 %install
-env \
-  SRCDIR=. \
-  DESTDIR=%{buildroot} \
-  datadir=%{_datadir} \
-  %{_builddir}/agama/install.sh
+install -D -d -m 0755 %{buildroot}%{_datadir}/agama/products.d
+install -m 0644 *.yaml %{buildroot}%{_datadir}/agama/products.d
 
 %package opensuse
 Summary:        Definition of openSUSE products for the Agama installer.

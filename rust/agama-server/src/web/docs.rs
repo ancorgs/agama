@@ -34,8 +34,6 @@ mod l10n;
 pub use l10n::L10nApiDocBuilder;
 mod questions;
 pub use questions::QuestionsApiDocBuilder;
-mod profile;
-pub use profile::ProfileApiDocBuilder;
 mod manager;
 pub use manager::ManagerApiDocBuilder;
 mod users;
