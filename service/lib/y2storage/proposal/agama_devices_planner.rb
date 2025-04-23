@@ -49,7 +49,7 @@ module Y2Storage
         #  - For dedicated VGs it creates a Planned VG containing a Planned LV, but no PVs
         #  - For LVM volumes it create a Planned LV but associated to no planned VG
         #  - For partition volumes, it creates a planned partition, of course
-        planned = planned_drives(config) + planned_vgs(config)
+        planned = planned_drives(config) + planned_mds(config) + planned_vgs(config)
         Planned::DevicesCollection.new(planned)
       end
 
@@ -67,6 +67,15 @@ module Y2Storage
         config.drives.flat_map do |drive|
           planner = AgamaDrivePlanner.new(devicegraph, issues_list)
           planner.planned_devices(drive, config)
+        end
+      end
+
+      # @param config [Agama::Storage::Config]
+      # @return [Array<Planned::Device>]
+      def planned_mds(config)
+        config.md_raids.flat_map do |raid|
+          planner = AgamaMdRaidPlanner.new(devicegraph, issues_list)
+          planner.planned_devices(raid, config)
         end
       end
 

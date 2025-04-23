@@ -22,6 +22,7 @@
 require "y2storage/exceptions"
 require "y2storage/proposal/lvm_creator"
 require "y2storage/proposal/partition_creator"
+require "y2storage/proposal/agama_partitioner"
 
 module Y2Storage
   module Proposal
@@ -111,6 +112,7 @@ module Y2Storage
       #   planned devices have been allocated
       def process_devices
         process_existing_partitionables
+        process_new_mds
         process_volume_groups
 
         # This may be unexpected if the storage configuration provided by the user includes
@@ -144,6 +146,15 @@ module Y2Storage
       end
 
       # @see #process_devices
+      def process_new_mds
+        # TODO: Reuse MDs
+        planned_devices.md_raids.map do |planned_md|
+          md = create_md_raid(planned_md)
+          process_partitionable(md)
+        end
+      end
+
+      # @see #process_devices
       def process_volume_groups
         # TODO: Reuse volume groups.
         planned_devices.vgs.map { |v| create_volume_group(v) }
@@ -172,6 +183,12 @@ module Y2Storage
         self.creator_result = creator_result.merge(new_result)
       end
 
+      def process_partitionable(device, planned)
+        partitioner = AgamaPartitioner.new(devicegraph)
+        new_result = partitioner.process_device(device, planned)
+        self.creator_result = creator_result.merge(new_result)
+      end
+
       # Physical volumes (new partitions and reused devices) for a new volume group.
       #
       # @param vg_name [String]
@@ -185,6 +202,37 @@ module Y2Storage
           .map(&:reuse_name)
 
         new_pvs + reused_pvs
+      end
+
+      # Creates an MD RAID for the the given planned device.
+      #
+      # @param planned [Planned::Md]
+      def create_md_raid(planned)
+        md = Y2Storage::Md.create(devicegraph, md_device_name(planned))
+        md.md_level = planned.md_level if planned.md_level
+        md.chunk_size = planned.chunk_size if planned.chunk_size
+        md.md_parity = planned.md_parity if planned.md_parity
+        devices = md_members(planned)
+        devices.map(&:remove_descendants)
+        md.sorted_devices = devices
+        md
+      end
+
+      def md_device_name(planned_md)
+        return planned_md.name if planned_md.name.start_with?("/dev/")
+
+        Y2Storage::Md.find_free_numeric_name(devicegraph)
+      end
+
+      def md_members(planned_md)
+        names = planned_devices
+          .select { |d| d.respond_to?(:raid_name) && d.raid_name == planned_md.name }
+          .sort_by { |d| d.raid_member_index }
+          .map { |d| planned_device_name(d) }
+        names.map do |dev_name|
+          device = Y2Storage::BlkDevice.find_by_name(devicegraph, dev_name)
+          device.encryption || device
+        end
       end
 
       # @see #process_existing_partitionables
@@ -221,8 +269,15 @@ module Y2Storage
       #
       # @return [Array<Planned::Device>]
       def reused_planned_devices
+        # NOTE: So far this only takes disks (and its partitions) into account
         planned_devices.disks.select(&:reuse?) +
           planned_devices.disks.flat_map(&:partitions).select(&:reuse?)
+      end
+
+      def planned_device_name(planned)
+        return planned.reuse_name if planned.reuse?
+
+        creator_result.created_names { |d| d.planned_id == planned.planned_id }.first
       end
 
       # Formats and/or mounts the disk-like block devices

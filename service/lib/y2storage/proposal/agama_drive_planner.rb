@@ -60,6 +60,7 @@ module Y2Storage
           configure_reuse(planned, drive_config)
           configure_block_device(planned, drive_config)
           configure_pv(planned, drive_config, config)
+          configure_md_member(planned, drive_config, config)
         end
       end
 

@@ -146,6 +146,8 @@ module Y2Storage
       # @param device_config [Agama::Storage::Configs::Drive]
       # @param config [Agama::Storage::Config]
       def configure_partitions(planned, device_config, config)
+        planned.ptable_type = device_config.ptable_type if planned.respond_to?(:ptable_type=)
+
         partition_configs = device_config.partitions
           .reject(&:delete?)
           .reject(&:delete_if_needed?)
@@ -169,6 +171,7 @@ module Y2Storage
           configure_block_device(planned, partition_config)
           configure_size(planned, partition_config.size)
           configure_pv(planned, partition_config, config)
+          configure_md_member(planned, partition_config, config)
         end
       end
 
@@ -182,6 +185,20 @@ module Y2Storage
         return unless vg
 
         planned.lvm_volume_group_name = vg.name
+      end
+
+      # @param planned [Planned::Disk, Planned::Partition]
+      # @param device_config [Agama::Storage::Configs::Drive, Agama::Storage::Configs::Partition]
+      # @param config [Agama::Storage::Config]
+      def configure_md_member(planned, device_config, config)
+        return unless planned.respond_to?(:raid_name) && device_config.alias
+
+        md = config.md_raids.find { |r| r.devices.include?(device_config.alias) }
+        return unless md
+
+        planned.raid_name = AgamaMdPlanner.raid_name(md, config)
+        # This is a new field to be added to CanBeRaidMember
+        planned.raid_member_index = md.devices.index(device_config.alias)
       end
     end
   end
