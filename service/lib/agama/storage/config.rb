@@ -126,6 +126,20 @@ module Agama
       def with_size
         partitions + logical_volumes
       end
+
+      # Config objects that could act as physical volume
+      #
+      # @return [Array<Configs::Drive, Configs::Md, Configs::Partition>]
+      def potential_for_pv
+        drives + md_raids + partitions
+      end
+
+      # Config objects that could be used to create automatic physical volume
+      #
+      # @return [Array<Configs::Drive, Configs::Md]
+      def potential_for_pv_device
+        drives + md_raids
+      end
     end
   end
 end
