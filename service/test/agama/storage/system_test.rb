@@ -53,15 +53,28 @@ describe Agama::Storage::System do
     end
   end
 
-  describe "#candidate_md_raids" do
+  describe "#available_md_raids" do
     let(:scenario) { "md_raids.yaml" }
 
     before do
       allow(disk_analyzer).to receive(:candidate_device?) { |d| d.name != "/dev/md0" }
     end
 
-    it "includes all MD RAIDs suitable for installation" do
-      expect(subject.candidate_md_raids.map(&:name)).to contain_exactly("/dev/md1", "/dev/md2")
+    it "includes all software RAIDs that are not in use" do
+      expect(subject.available_md_raids.map(&:name)).to contain_exactly("/dev/md1", "/dev/md2")
+    end
+  end
+
+  describe "#candidate_md_raids" do
+    let(:scenario) { "md_raids.yaml" }
+
+    before do
+      allow(disk_analyzer).to receive(:candidate_software_raid?) { |d| d.name == "/dev/md1" }
+    end
+
+
+    it "includes all MD RAIDs considered by Y2Storage as suitable for installation" do
+      expect(subject.candidate_md_raids.map(&:name)).to contain_exactly("/dev/md1")
     end
   end
 end
