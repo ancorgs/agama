@@ -55,6 +55,11 @@ type SpacePolicy = {
   actions?: SpacePolicyAction[];
 };
 
+type SearchedDevice = {
+  name: string;
+  list: "drives" | "mdRaids";
+};
+
 export type {
   Partition,
   VolumeGroup,
@@ -63,4 +68,5 @@ export type {
   Size,
   SpacePolicy,
   SpacePolicyAction,
+  SearchedDevice,
 };

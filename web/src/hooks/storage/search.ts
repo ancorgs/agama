@@ -20,27 +20,20 @@
  * find current contact information at www.suse.com.
  */
 
-import { apiModel } from "~/api/storage/types";
-import { model } from "~/types/storage";
-import { copyApiModel } from "~/helpers/storage/api-model";
-import { buildModel } from "~/helpers/storage/model";
+import { useApiModel, useUpdateApiModel } from "~/hooks/storage/api-model";
+import { addSearched } from "~/helpers/storage/search";
+import { QueryHookOptions } from "~/types/queries";
+import { data } from "~/types/storage";
 
-function buildDrive(apiModel: apiModel.Config, name: string): model.Drive | undefined {
-  const model = buildModel(apiModel);
-  return model.drives.find((d) => d.name === name);
+type AddSearchedFn = (data: data.SearchedDevice) => void;
+
+function useAddSearched(options?: QueryHookOptions): AddSearchedFn {
+  const apiModel = useApiModel(options);
+  const updateApiModel = useUpdateApiModel();
+  return (data: data.SearchedDevice) => {
+    updateApiModel(addSearched(apiModel, data));
+  };
 }
 
-function deleteIfUnused(apiModel: apiModel.Config, name: string): apiModel.Config {
-  apiModel = copyApiModel(apiModel);
-
-  const index = (apiModel.drives || []).findIndex((d) => d.name === name);
-  if (index === -1) return apiModel;
-
-  const drive = buildDrive(apiModel, name);
-  if (!drive || drive.isUsed) return apiModel;
-
-  apiModel.drives.splice(index, 1);
-  return apiModel;
-}
-
-export { deleteIfUnused };
+export { useAddSearched };
+export type { AddSearchedFn };

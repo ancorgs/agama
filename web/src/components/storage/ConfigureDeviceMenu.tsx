@@ -25,8 +25,9 @@ import { useNavigate } from "react-router-dom";
 import { Split, Flex, Label, Divider } from "@patternfly/react-core";
 import MenuButton, { MenuButtonItem } from "~/components/core/MenuButton";
 import MenuDeviceDescription from "./MenuDeviceDescription";
-import { useAvailableDrives, useLongestDiskTitle } from "~/hooks/storage/system";
-import { useConfigModel, useModel } from "~/queries/storage/config-model";
+import { useCandidateDevices, useLongestDiskTitle } from "~/hooks/storage/system";
+import { useModel } from "~/hooks/storage/model";
+import { useAddSearched } from "~/hooks/storage/search";
 import { deviceLabel } from "~/components/storage/utils";
 import { STORAGE as PATHS } from "~/routes/paths";
 import { sprintf } from "sprintf-js";
@@ -39,7 +40,7 @@ type DisksDrillDownMenuItemProps = {
   /** The amount of drives already configured */
   drivesCount: number;
   /** Callback function to be triggered when a device is selected */
-  onDeviceClick: (deviceName: StorageDevice["name"]) => void;
+  onDeviceClick: (device: StorageDevice) => void;
 };
 
 /**
@@ -76,7 +77,7 @@ const DisksDrillDownMenuItem = ({
         <MenuButtonItem
           key={device.sid}
           description={<MenuDeviceDescription device={device} />}
-          onClick={() => onDeviceClick(device.name)}
+          onClick={() => onDeviceClick(device)}
         >
           <Split hasGutter>
             {deviceLabel(device, true)}
@@ -108,14 +109,20 @@ const DisksDrillDownMenuItem = ({
  */
 export default function ConfigureDeviceMenu(): React.ReactNode {
   const navigate = useNavigate();
-  const model = useConfigModel({ suspense: true });
-  const { addDrive } = useModel();
-  const allDevices = useAvailableDrives();
+  const model = useModel({ suspense: true });
 
-  const drivesNames = model.drives.map((d) => d.name);
-  const drivesCount = drivesNames.length;
-  const devices = allDevices.filter((d) => !drivesNames.includes(d.name));
+  const addSearched = useAddSearched();
+  const allDevices = useCandidateDevices();
+
+  const usedDevicesNames = model.drives.concat(model.mdRaids).map((d) => d.name);
+  const usedDevicesCount = usedDevicesNames.length;
+  const devices = allDevices.filter((d) => !usedDevicesNames.includes(d.name));
   const longestTitle = useLongestDiskTitle();
+
+  const addDevice = (device: StorageDevice) => {
+    const list = device.isDrive ? "drives" : "mdRaids";
+    addSearched({ name: device.name, list });
+  };
 
   const lvmDescription = allDevices.length
     ? _("Define a new LVM on top of one or several disks")
@@ -130,9 +137,9 @@ export default function ConfigureDeviceMenu(): React.ReactNode {
       items={[
         <DisksDrillDownMenuItem
           key="select-disk-option"
-          drivesCount={drivesCount}
+          drivesCount={usedDevicesCount}
           devices={devices}
-          onDeviceClick={addDrive}
+          onDeviceClick={addDevice}
         />,
         <Divider key="divider-option" />,
         <MenuButtonItem
