@@ -60,6 +60,12 @@ type SearchedDevice = {
   list: "drives" | "mdRaids";
 };
 
+type SearchSwitch = {
+  oldName: string;
+  name: string;
+  list: "drives" | "mdRaids";
+};
+
 export type {
   Partition,
   VolumeGroup,
@@ -69,4 +75,5 @@ export type {
   SpacePolicy,
   SpacePolicyAction,
   SearchedDevice,
+  SearchSwitch,
 };

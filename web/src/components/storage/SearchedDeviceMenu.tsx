@@ -25,9 +25,9 @@ import { Split, Flex, Label } from "@patternfly/react-core";
 import MenuButton, { MenuButtonItem } from "~/components/core/MenuButton";
 import MenuDeviceDescription from "./MenuDeviceDescription";
 import NewVgMenuOption from "./NewVgMenuOption";
-import { useAvailableDrives, useLongestDiskTitle } from "~/hooks/storage/system";
-import { useDrive, useModel } from "~/queries/storage/config-model";
-import { useDrive as useDriveModel } from "~/hooks/storage/drive";
+import { useCandidateDevices, useLongestDiskTitle } from "~/hooks/storage/system";
+import { useModel } from "~/hooks/storage/model";
+import { useDeleteSearched, useSwitchSearched } from "~/hooks/storage/search";
 import * as driveUtils from "~/components/storage/utils/drive";
 import { deviceBaseName, deviceLabel, formattedPath } from "~/components/storage/utils";
 import * as model from "~/types/storage/model";
@@ -35,17 +35,14 @@ import { StorageDevice } from "~/types/storage";
 import { sprintf } from "sprintf-js";
 import { _, formatList } from "~/i18n";
 
-const driveBaseName = (device: StorageDevice): string => deviceBaseName(device, true);
-const driveLabel = (device: StorageDevice): string => deviceLabel(device, true);
+const baseName = (device: StorageDevice): string => deviceBaseName(device, true);
+const label = (device: StorageDevice): string => deviceLabel(device, true);
 
-const UseOnlyOneOption = (drive: model.Drive): boolean => {
-  const driveModel = useDrive(drive.name);
-  if (!driveModel) return false;
+const UseOnlyOneOption = (device: model.Drive | model.MdRaid): boolean => {
+  const hasPv = device.getVolumeGroups().length > 0;
+  if (!driveUtils.hasFilesystem(device) && (hasPv || device.isExplicitBoot)) return true;
 
-  const { isExplicitBoot, hasPv } = driveModel;
-  if (!driveUtils.hasFilesystem(drive) && (hasPv || isExplicitBoot)) return true;
-
-  return driveUtils.hasReuse(drive);
+  return driveUtils.hasReuse(device);
 };
 
 type DiskSelectorTitleProps = { device: StorageDevice; isSelected: boolean };
@@ -54,7 +51,7 @@ const DiskSelectorTitle = ({
   device,
   isSelected = false,
 }: DiskSelectorTitleProps): React.ReactNode => {
-  const Name = () => (isSelected ? <b>{driveLabel(device)}</b> : driveLabel(device));
+  const Name = () => (isSelected ? <b>{label(device)}</b> : label(device));
   const Systems = () => (
     <Flex columnGap={{ default: "columnGapXs" }}>
       {device.systems.map((s, i) => (
@@ -76,7 +73,7 @@ const DiskSelectorTitle = ({
 const searchSelectorMultipleOptions = (
   devices: StorageDevice[],
   selected: StorageDevice,
-  onChange: (name: StorageDevice["name"]) => void,
+  onChange: (device: StorageDevice) => void,
 ): React.ReactNode[] => {
   return devices.map((device) => {
     const isSelected = device.sid === selected.sid;
@@ -87,7 +84,7 @@ const searchSelectorMultipleOptions = (
         itemId={device.sid}
         isSelected={isSelected}
         description={<MenuDeviceDescription device={device} />}
-        onClick={() => onChange(device.name)}
+        onClick={() => onChange(device)}
       >
         <DiskSelectorTitle device={device} isSelected={isSelected} />
       </MenuButtonItem>
@@ -109,12 +106,12 @@ const SearchSelectorSingleOption = ({ selected }: { selected: StorageDevice }): 
 };
 
 const searchSelectorOptions = (
-  drive: model.Drive,
+  modelDevice: model.Drive | model.mdRaid,
   devices: StorageDevice[],
   selected: StorageDevice,
-  onChange: (name: StorageDevice["name"]) => void,
+  onChange: (device: StorageDevice) => void,
 ): React.ReactNode[] => {
-  const onlyOneOption = UseOnlyOneOption(drive);
+  const onlyOneOption = UseOnlyOneOption(modelDevice);
 
   if (onlyOneOption) return [<SearchSelectorSingleOption key="disk-option" selected={selected} />];
 
@@ -122,27 +119,26 @@ const searchSelectorOptions = (
 };
 
 type DisksDrillDownMenuItemProps = {
-  drive: model.Drive;
+  modelDevice: model.Drive | model.mdRaid;
   selected: StorageDevice;
-  onDeviceClick: (name: StorageDevice["name"]) => void;
+  onDeviceClick: (device: StorageDevice) => void;
 };
 
 /**
  * Internal component holding the logic for rendering the disks drilldown menu
  */
 const DisksDrillDownMenuItem = ({
-  drive,
+  modelDevice,
   selected,
   onDeviceClick,
 }: DisksDrillDownMenuItemProps): React.ReactNode => {
-  /** @todo Replace the useDrive hook from /queries by the hook from /hooks. */
-  const volumeGroups = useDriveModel(drive.name)?.getVolumeGroups() || [];
-  const onlyOneOption = UseOnlyOneOption(drive);
-  const devices = useAvailableDrives();
-  const driveModel = useDrive(drive.name);
-  if (!driveModel) return;
+  const volumeGroups = modelDevice.getVolumeGroups() || [];
+  const onlyOneOption = UseOnlyOneOption(modelDevice);
+  const devices = useCandidateDevices();
 
-  const { isBoot, isExplicitBoot, hasPv } = driveModel;
+  const isBoot = modelDevice.isBoot;
+  const isExplicitBoot = modelDevice.isExplicitBoot;
+  const hasPv = volumeGroups.length > 0;
   const vgName = volumeGroups[0]?.vgName;
 
   const mainText = (): string => {
@@ -150,15 +146,15 @@ const DisksDrillDownMenuItem = ({
       return _("Selected disk (cannot be changed)");
     }
 
-    if (!driveUtils.hasFilesystem(drive)) {
+    if (!driveUtils.hasFilesystem(modelDevice)) {
       return _("Select a disk to configure");
     }
 
-    if (driveUtils.hasRoot(drive)) {
+    if (driveUtils.hasRoot(modelDevice)) {
       return _("Select a disk to install the system");
     }
 
-    const mountPaths = drive.partitions
+    const mountPaths = modelDevice.partitions
       .filter((p) => !p.name)
       .map((p) => formattedPath(p.mountPath));
 
@@ -171,14 +167,14 @@ const DisksDrillDownMenuItem = ({
   };
 
   const extraText = (): string => {
-    const name = driveBaseName(selected);
+    const name = baseName(selected);
 
-    if (driveUtils.hasReuse(drive)) {
+    if (driveUtils.hasReuse(modelDevice)) {
       // The current device will be the only option to choose from
       return _("This uses existing partitions at the disk");
     }
 
-    if (!driveUtils.hasFilesystem(drive)) {
+    if (!driveUtils.hasFilesystem(modelDevice)) {
       // The current device will be the only option to choose from
       if (hasPv) {
         if (volumeGroups.length > 1) {
@@ -254,28 +250,45 @@ const DisksDrillDownMenuItem = ({
     <MenuButtonItem
       aria-label={_("Change device menu")}
       description={extraText()}
-      items={searchSelectorOptions(drive, devices, selected, onDeviceClick)}
+      items={searchSelectorOptions(modelDevice, devices, selected, onDeviceClick)}
     >
       {text}
     </MenuButtonItem>
   );
 };
 
-type RemoveDriveOptionProps = { drive: model.Drive };
+type RemoveEntryOptionProps = {
+  device: model.Drive | model.MdRaid;
+  onClick: (device: model.Drive | model.MdRaid) => void;
+};
 
-const RemoveDriveOption = ({ drive }: RemoveDriveOptionProps): React.ReactNode => {
-  const driveModel = useDrive(drive.name);
-  const { hasAdditionalDrives } = useModel();
+const RemoveEntryOption = ({ device, onClick }: RemoveEntryOptionProps): React.ReactNode => {
+  const model = useModel();
 
-  if (!driveModel) return;
+  /*
+   * Pretty artificial logic used to decide whether the UI should display buttons to remove
+   * some drives.
+   */
+  const hasAdditionalDrives = (model: model.Config): boolean => {
+    const entries = model.drives.concat(model.mdRaids);
 
-  const { isExplicitBoot, hasPv, delete: deleteDrive } = driveModel;
+    if (entries.length <= 1) return false;
+    if (entries.length > 2) return true;
+
+    // If there are only two drives, the following logic avoids the corner case in which first
+    // deleting one of them and then changing the boot settings can lead to zero disks. But it is far
+    // from being fully reasonable or understandable for the user.
+    const onlyToBoot = entries.find((e) => e.isExplicitBoot && !e.isUsed);
+    return !onlyToBoot;
+  };
 
   // When no additional drives has been added, the "Do not use" button can be confusing so it is
   // omitted for all drives.
-  if (!hasAdditionalDrives) return;
+  if (!hasAdditionalDrives(model)) return;
 
   let description;
+  const isExplicitBoot = device.isExplicitBoot;
+  const hasPv = device.getVolumeGroups().length > 0;
   const isDisabled = isExplicitBoot || hasPv;
 
   if (isExplicitBoot) {
@@ -298,35 +311,42 @@ const RemoveDriveOption = ({ drive }: RemoveDriveOptionProps): React.ReactNode =
       isDanger
       isDisabled={isDisabled}
       description={description}
-      onClick={deleteDrive}
+      onClick={() => onClick(device)}
     >
       {_("Do not use")}
     </MenuButtonItem>
   );
 };
 
-export type DriveDeviceMenuProps = { drive: model.Drive; selected: StorageDevice };
+export type SearchedDeviceMenuProps = {
+  modelDevice: model.Drive | model.MdRaid;
+  selected: StorageDevice;
+};
 
 /**
- * Menu that provides options for users to configure the device used by a given drive.
- *
- * It uses a drilled-down menu approach for disks, making the available options less
- * overwhelming by presenting them in a more organized manner.
+ * Menu that provides options for users to configure the device used by a configuration
+ * entry that represents a partitionable previously existing in the system (a drive or a
+ * reused software RAID).
  */
-export default function DriveDeviceMenu({
-  drive,
+export default function SearchedDeviceMenu({
+  modelDevice,
   selected,
-}: DriveDeviceMenuProps): React.ReactNode {
-  const driveHandler = useDrive(drive.name);
-  const changeDriveTarget = (newDriveName: string) => {
-    driveHandler.switch(newDriveName);
+}: SearchedDeviceMenuProps): React.ReactNode {
+  const switchSearched = useSwitchSearched();
+  const changeTargetFn = (device: StorageDevice) => {
+    const list = device.isDrive ? "drives" : "mdRaids";
+    switchSearched({ oldName: modelDevice.name, name: device.name, list });
+  };
+  const deleteSearched = useDeleteSearched();
+  const deleteFn = (device: model.Drive | model.MdRaid) => {
+    deleteSearched({ name: device.name, list: device.list });
   };
   const longestTitle = useLongestDiskTitle();
 
   return (
     <MenuButton
       menuProps={{
-        "aria-label": sprintf(_("Device %s menu"), drive.name),
+        "aria-label": sprintf(_("Device %s menu"), modelDevice.name),
         popperProps: { minWidth: `min(${longestTitle * 0.75}em, 75vw)`, width: "max-content" },
       }}
       toggleProps={{
@@ -335,15 +355,15 @@ export default function DriveDeviceMenu({
       items={[
         <DisksDrillDownMenuItem
           key="change-disk-option"
-          drive={drive}
+          modelDevice={modelDevice}
           selected={selected}
-          onDeviceClick={changeDriveTarget}
+          onDeviceClick={changeTargetFn}
         />,
-        <NewVgMenuOption key="add-vg-option" device={drive} />,
-        <RemoveDriveOption key="delete-disk-option" drive={drive} />,
+        <NewVgMenuOption key="add-vg-option" device={modelDevice} />,
+        <RemoveEntryOption key="delete-disk-option" device={modelDevice} onClick={deleteFn} />,
       ]}
     >
-      {<b>{driveLabel(selected)}</b>}
+      {<b>{label(selected)}</b>}
     </MenuButton>
   );
 }

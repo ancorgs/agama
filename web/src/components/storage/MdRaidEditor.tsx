@@ -25,7 +25,7 @@ import { MdRaid } from "~/types/storage/model";
 import { StorageDevice } from "~/types/storage";
 import PartitionableHeader from "~/components/storage/PartitionableHeader";
 import PartitionsMenu from "~/components/storage/PartitionsMenu";
-import MdRaidDeviceMenu from "~/components/storage/MdRaidDeviceMenu";
+import SearchedDeviceMenu from "~/components/storage/SearchedDeviceMenu";
 import SpacePolicyMenu from "~/components/storage/SpacePolicyMenu";
 import { Card, CardBody, CardHeader, CardTitle, Flex } from "@patternfly/react-core";
 
@@ -36,7 +36,7 @@ export type MdRaidEditorProps = { raid: MdRaid; raidDevice: StorageDevice };
 const MdRaidHeader = ({ raid, raidDevice }: MdRaidEditorProps) => {
   return (
     <PartitionableHeader device={raid}>
-      <MdRaidDeviceMenu raid={raid} selected={raidDevice} />
+      <SearchedDeviceMenu modelDevice={raid} selected={raidDevice} />
     </PartitionableHeader>
   );
 };

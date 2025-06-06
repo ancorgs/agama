@@ -23,7 +23,7 @@
 import React from "react";
 import { Drive } from "~/types/storage/model";
 import { StorageDevice } from "~/types/storage";
-import DriveDeviceMenu from "~/components/storage/DriveDeviceMenu";
+import SearchedDeviceMenu from "~/components/storage/SearchedDeviceMenu";
 import PartitionableHeader from "~/components/storage/PartitionableHeader";
 import PartitionsMenu from "~/components/storage/PartitionsMenu";
 import SpacePolicyMenu from "~/components/storage/SpacePolicyMenu";
@@ -36,7 +36,7 @@ export type DriveEditorProps = { drive: Drive; driveDevice: StorageDevice };
 const DriveHeader = ({ drive, driveDevice }: DriveEditorProps) => {
   return (
     <PartitionableHeader device={drive}>
-      <DriveDeviceMenu drive={drive} selected={driveDevice} />
+      <SearchedDeviceMenu modelDevice={drive} selected={driveDevice} />
     </PartitionableHeader>
   );
 };

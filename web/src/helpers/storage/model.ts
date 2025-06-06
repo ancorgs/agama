@@ -130,6 +130,7 @@ function partitionableProperties(
     isAddingPartitions: isAddingPartitions(),
     isTargetDevice: isTargetDevice(),
     isBoot: isBoot(),
+    isExplicitBoot: isExplicitBoot(),
     partitions,
     getMountPaths,
     getVolumeGroups,

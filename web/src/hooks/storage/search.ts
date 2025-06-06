@@ -21,7 +21,7 @@
  */
 
 import { useApiModel, useUpdateApiModel } from "~/hooks/storage/api-model";
-import { addSearched } from "~/helpers/storage/search";
+import { addSearched, deleteSearched, switchSearched } from "~/helpers/storage/search";
 import { QueryHookOptions } from "~/types/queries";
 import { data } from "~/types/storage";
 
@@ -35,5 +35,25 @@ function useAddSearched(options?: QueryHookOptions): AddSearchedFn {
   };
 }
 
-export { useAddSearched };
-export type { AddSearchedFn };
+type DeleteSearchedFn = (data: data.SearchedDevice) => void;
+
+function useDeleteSearched(options?: QueryHookOptions): DeleteSearchedFn {
+  const apiModel = useApiModel(options);
+  const updateApiModel = useUpdateApiModel();
+  return (data: data.SearchedDevice) => {
+    updateApiModel(deleteSearched(apiModel, data));
+  };
+}
+
+type SwitchSearchedFn = (data: data.SearchSwitch) => void;
+
+function useSwitchSearched(options?: QueryHookOptions): SwitchSearchedFn {
+  const apiModel = useApiModel(options);
+  const updateApiModel = useUpdateApiModel();
+  return (data: data.SearchSwitch) => {
+    updateApiModel(switchSearched(apiModel, data));
+  };
+}
+
+export { useAddSearched, useDeleteSearched, useSwitchSearched };
+export type { AddSearchedFn, DeleteSearchedFn, SwitchSearchedFn };

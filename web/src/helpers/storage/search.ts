@@ -22,30 +22,35 @@
 
 import { apiModel } from "~/api/storage/types";
 import { model } from "~/types/storage";
-import { copyApiModel } from "~/helpers/storage/api-model";
+import { copyApiModel, findDevice, findDeviceIndex } from "~/helpers/storage/api-model";
 import { buildModel } from "~/helpers/storage/model";
 
-function findModelDevice(
+function deviceLocation(apiModel: apiModel.Config, name: string) {
+  let index;
+  for (const list of ["drives", "mdRaids"]) {
+    index = findDeviceIndex(apiModel, list, name);
+    if (index !== -1) return { list, index };
+  }
+
+  return { list: undefined, index: -1 };
+}
+
+function buildModelDevice(
   apiModel: apiModel.Config,
-  name: string,
   list: string,
-): model.Drive | undefined {
+  index: number,
+): model.Drive | model.mdRaid | undefined {
   const model = buildModel(apiModel);
-  return model[list].find((d) => d.name === name);
+  return model[list].at(index);
 }
 
 function deleteIfUnused(apiModel: apiModel.Config, name: string): apiModel.Config {
   apiModel = copyApiModel(apiModel);
 
-  let list = "drives";
-  let index = (apiModel.drives || []).findIndex((d) => d.name === name);
-  if (index === -1) {
-    list = "mdRaids";
-    index = (apiModel.mdRaids || []).findIndex((d) => d.name === name);
-    if (index === -1) return apiModel;
-  }
+  const { list, index } = deviceLocation(apiModel, name);
+  if (!list) return apiModel;
 
-  const device = findModelDevice(apiModel, name, list);
+  const device = buildModelDevice(apiModel, list, index);
   if (!device || device.isUsed) return apiModel;
 
   apiModel[list].splice(index, 1);
@@ -60,4 +65,50 @@ function addSearched(apiModel: apiModel.Config, data: data.SearchedDevice): apiM
   return apiModel;
 }
 
-export { deleteIfUnused, addSearched };
+function deleteSearched(apiModel: apiModel.Config, data: data.SearchedDevice): apiModel.Config {
+  apiModel = copyApiModel(apiModel);
+  apiModel[data.list] = apiModel[data.list].filter((d) => d.name !== data.name);
+
+  return apiModel;
+}
+
+function switchSearched(apiModel: apiModel.Config, data: data.SearchSwitch): apiModel.Config {
+  if (data.name === data.oldName) return;
+
+  apiModel = copyApiModel(apiModel);
+
+  const { list, index } = deviceLocation(apiModel, data.oldName);
+  if (!list) return apiModel;
+
+  const device = findDevice(apiModel, list, index);
+  const deviceModel = buildModelDevice(apiModel, list, index);
+
+  // TODO: replace the two next calls with Radashi's fork
+  const newPartitions = deviceModel.partitions.filter((p) => p.isNew);
+  const existingPartitions = deviceModel.partitions.filter((p) => !p.isNew);
+  const reusedPartitions = existingPartitions.filter((p) => p.isReused);
+  const keepEntry = deviceModel.isExplicitBoot || reusedPartitions.length;
+
+  if (keepEntry) {
+    device.partitions = existingPartitions;
+  } else {
+    apiModel[list].splice(index, 1);
+  }
+
+  const targetIndex = findDeviceIndex(apiModel, data.list, data.name);
+  if (targetIndex !== -1) {
+    const target = findDevice(apiModel, data.list, targetIndex);
+    target.partitions ||= [];
+    target.partitions = [...target.partitions, ...newPartitions];
+  } else {
+    apiModel[data.list].push({
+      name: data.name,
+      partitions: newPartitions,
+      spacePolicy: device.spacePolicy === "custom" ? undefined : device.spacePolicy,
+    });
+  }
+
+  return apiModel;
+}
+
+export { deleteIfUnused, addSearched, deleteSearched, switchSearched };
