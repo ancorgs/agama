@@ -33,39 +33,28 @@ import {
   FormHelperText,
   HelperText,
   HelperTextItem,
-  Label,
   SelectGroup,
   SelectList,
   SelectOption,
   SelectOptionProps,
-  Split,
-  SplitItem,
   Stack,
   TextInput,
 } from "@patternfly/react-core";
-import { Page, SelectWrapper as Select, SubtleContent } from "~/components/core/";
+import { Page, SelectWrapper as Select } from "~/components/core/";
 import { SelectWrapperProps as SelectProps } from "~/components/core/SelectWrapper";
 import SelectTypeaheadCreatable from "~/components/core/SelectTypeaheadCreatable";
-import AutoSizeText from "~/components/storage/AutoSizeText";
-import { useAddPartition, useEditPartition } from "~/hooks/storage/partition";
 import { useMissingMountPaths } from "~/hooks/storage/product";
 import { useModel } from "~/hooks/storage/model";
-import {
-  addPartition as addPartitionHelper,
-  editPartition as editPartitionHelper,
-} from "~/helpers/storage/partition";
 import { useDevices, useVolume } from "~/queries/storage";
-import { useConfigModel, useSolvedConfigModel } from "~/queries/storage/config-model";
-import { findDevice } from "~/helpers/storage/api-model";
 import { StorageDevice } from "~/types/storage";
-import { deviceSize, deviceLabel, filesystemLabel, parseToBytes } from "~/components/storage/utils";
+import { deviceSize, filesystemLabel, parseToBytes } from "~/components/storage/utils";
 import { _ } from "~/i18n";
 import { sprintf } from "sprintf-js";
 import { apiModel } from "~/api/storage/types";
 import { STORAGE as PATHS } from "~/routes/paths";
 import { unique } from "radashi";
 import { compact } from "~/utils";
-import SizeModeSelect, { SizeMode, SizeRange } from "~/components/storage/SizeModeSelect";
+import { SizeMode } from "~/components/storage/SizeModeSelect";
 
 const NO_VALUE = "";
 const NEW_PARTITION = "new";
@@ -244,19 +233,6 @@ function useUnusedMountPoints(): string[] {
   return compact([initialPartitionConfig?.mountPath, ...unusedMountPaths]);
 }
 
-/** Unused partitions. Includes the currently used partition when editing (if any). */
-function useUnusedPartitions(): StorageDevice[] {
-  const device = useDevice();
-  const allPartitions = device.partitionTable?.partitions || [];
-  const initialPartitionConfig = useInitialPartitionConfig();
-  const configuredPartitionConfigs = useModelDevice()
-    .getConfiguredExistingPartitions()
-    .filter((p) => p.name !== initialPartitionConfig?.name)
-    .map((p) => p.name);
-
-  return allPartitions.filter((p) => !configuredPartitionConfigs.includes(p.name));
-}
-
 function useUsableFilesystems(mountPoint: string): string[] {
   const volume = useVolume(mountPoint);
   const defaultFilesystem = useDefaultFilesystem(mountPoint);
@@ -319,60 +295,9 @@ function useMountPointError(value: FormValue): Error | undefined {
   }
 }
 
-function useSizeError(value: FormValue): Error | undefined {
-  if (value.sizeOption !== "custom") return;
-
-  const min = value.minSize;
-  const max = value.maxSize;
-
-  if (!min) {
-    return {
-      id: "customSize",
-      isVisible: false,
-    };
-  }
-
-  const regexp = /^[0-9]+(\.[0-9]+)?(\s*([KkMmGgTtPpEeZzYy][iI]?)?[Bb])$/;
-  const validMin = regexp.test(min);
-  const validMax = max ? regexp.test(max) : true;
-
-  if (validMin && validMax) {
-    if (!max || parseToBytes(min) <= parseToBytes(max)) return;
-
-    return {
-      id: "customSize",
-      message: _("The minimum cannot be greater than the maximum"),
-      isVisible: true,
-    };
-  }
-
-  if (validMin) {
-    return {
-      id: "customSize",
-      message: _("The maximum must be a number followed by a unit like GiB or GB"),
-      isVisible: true,
-    };
-  }
-
-  if (validMax) {
-    return {
-      id: "customSize",
-      message: _("The minimum must be a number followed by a unit like GiB or GB"),
-      isVisible: true,
-    };
-  }
-
-  return {
-    id: "customSize",
-    message: _("Size limits must be numbers followed by a unit like GiB or GB"),
-    isVisible: true,
-  };
-}
-
 function useErrors(value: FormValue): ErrorsHandler {
   const mountPointError = useMountPointError(value);
-  const sizeError = useSizeError(value);
-  const errors = compact([mountPointError, sizeError]);
+  const errors = compact([mountPointError]);
 
   const getError = (id: string): Error | undefined => errors.find((e) => e.id === id);
 
@@ -382,68 +307,6 @@ function useErrors(value: FormValue): ErrorsHandler {
   };
 
   return { errors, getError, getVisibleError };
-}
-
-function useSolvedModel(value: FormValue): apiModel.Config | null {
-  const device = useModelDevice();
-  const model = useConfigModel();
-  const { errors } = useErrors(value);
-  const initialPartitionConfig = useInitialPartitionConfig();
-  const partitionConfig = toPartitionConfig(value);
-  partitionConfig.size = undefined;
-  if (partitionConfig.filesystem) partitionConfig.filesystem.label = undefined;
-
-  let sparseModel: apiModel.Config | undefined;
-
-  if (device && !errors.length && value.target === NEW_PARTITION && value.filesystem !== NO_VALUE) {
-    if (initialPartitionConfig) {
-      sparseModel = editPartitionHelper(
-        model,
-        device.list,
-        device.listIndex,
-        initialPartitionConfig.mountPath,
-        partitionConfig,
-      );
-    } else {
-      sparseModel = addPartitionHelper(model, device.list, device.listIndex, partitionConfig);
-    }
-  }
-
-  const solvedModel = useSolvedConfigModel(sparseModel);
-  return solvedModel;
-}
-
-function useSolvedPartitionConfig(value: FormValue): apiModel.Partition | undefined {
-  const model = useSolvedModel(value);
-  const { list, listIndex } = useModelDevice();
-  if (!model) return;
-
-  const container = findDevice(model, list, listIndex);
-  return container?.partitions?.find((p) => p.mountPath === value.mountPoint);
-}
-
-function useSolvedSizes(value: FormValue): SizeRange {
-  // Remove size values in order to get a solved size.
-  const valueWithoutSizes: FormValue = {
-    ...value,
-    sizeOption: NO_VALUE,
-    minSize: NO_VALUE,
-    maxSize: NO_VALUE,
-  };
-
-  const solvedPartitionConfig = useSolvedPartitionConfig(valueWithoutSizes);
-
-  const solvedSizes = React.useMemo(() => {
-    const min = solvedPartitionConfig?.size?.min;
-    const max = solvedPartitionConfig?.size?.max;
-
-    return {
-      min: min ? deviceSize(min) : NO_VALUE,
-      max: max ? deviceSize(max) : NO_VALUE,
-    };
-  }, [solvedPartitionConfig]);
-
-  return solvedSizes;
 }
 
 function useAutoRefreshFilesystem(handler, value: FormValue) {
@@ -469,82 +332,8 @@ function useAutoRefreshFilesystem(handler, value: FormValue) {
   }, [handler, mountPoint, target, defaultFilesystem, usableFilesystems, partitionFilesystem]);
 }
 
-function useAutoRefreshSize(handler, value: FormValue) {
-  const target = value.target;
-  const solvedSizes = useSolvedSizes(value);
-
-  React.useEffect(() => {
-    const sizeOption = target === NEW_PARTITION ? "auto" : "";
-    handler(sizeOption, solvedSizes.min, solvedSizes.max);
-  }, [handler, target, solvedSizes]);
-}
-
 function mountPointSelectOptions(mountPoints: string[]): SelectOptionProps[] {
   return mountPoints.map((p) => ({ value: p, children: p }));
-}
-
-type TargetOptionLabelProps = {
-  value: string;
-};
-
-function TargetOptionLabel({ value }: TargetOptionLabelProps): React.ReactNode {
-  const device = useDevice();
-  const partition = usePartition(value);
-
-  if (value === NEW_PARTITION) {
-    // TRANSLATORS: %s is a disk name with its size (eg. "sda, 10 GiB"
-    return sprintf(_("As a new partition on %s"), deviceLabel(device, true));
-  } else {
-    return sprintf(_("Using partition %s"), deviceLabel(partition, true));
-  }
-}
-
-type PartitionDescriptionProps = {
-  partition: StorageDevice;
-};
-
-function PartitionDescription({ partition }: PartitionDescriptionProps): React.ReactNode {
-  const label = partition.filesystem?.label;
-
-  return (
-    <Split hasGutter>
-      <SplitItem>{partition.description}</SplitItem>
-      {label && (
-        <SplitItem>
-          <Label isCompact variant="outline">
-            {label}
-          </Label>
-        </SplitItem>
-      )}
-    </Split>
-  );
-}
-
-function TargetOptions(): React.ReactNode {
-  const partitions = useUnusedPartitions();
-
-  return (
-    <SelectList aria-label={_("Mount point options")}>
-      <SelectOption value={NEW_PARTITION}>
-        <TargetOptionLabel value={NEW_PARTITION} />
-      </SelectOption>
-      <Divider />
-      <SelectGroup label={_("Using an existing partition")}>
-        {partitions.map((partition, index) => (
-          <SelectOption
-            key={index}
-            value={partition.name}
-            description={<PartitionDescription partition={partition} />}
-          >
-            {deviceLabel(partition)}
-          </SelectOption>
-        ))}
-        {partitions.length === 0 && (
-          <SelectOption isDisabled>{_("There are not usable partitions")}</SelectOption>
-        )}
-      </SelectGroup>
-    </SelectList>
-  );
 }
 
 type FilesystemOptionLabelProps = {
@@ -666,24 +455,6 @@ function FilesystemLabel({ id, value, onChange }: FilesystemLabelProps): React.R
   );
 }
 
-type AutoSizeInfoProps = {
-  value: FormValue;
-};
-
-function AutoSizeInfo({ value }: AutoSizeInfoProps): React.ReactNode {
-  const volume = useVolume(value.mountPoint);
-  const solvedPartitionConfig = useSolvedPartitionConfig(value);
-  const size = solvedPartitionConfig?.size;
-
-  if (!size) return;
-
-  return (
-    <SubtleContent>
-      <AutoSizeText volume={volume} size={size} deviceType={"partition"} />
-    </SubtleContent>
-  );
-}
-
 /**
  * @fixme This component has to be adapted to use the new hooks from ~/hooks/storage/ instead of the
  * deprecated hooks from ~/queries/storage/config-model.
@@ -692,48 +463,27 @@ export default function FormattableDevicePage() {
   const navigate = useNavigate();
   const headingId = useId();
   const [mountPoint, setMountPoint] = React.useState(NO_VALUE);
-  const [target, setTarget] = React.useState(NEW_PARTITION);
   const [filesystem, setFilesystem] = React.useState(NO_VALUE);
   const [filesystemLabel, setFilesystemLabel] = React.useState(NO_VALUE);
-  const [sizeOption, setSizeOption] = React.useState<SizeOptionValue>(NO_VALUE);
-  const [minSize, setMinSize] = React.useState(NO_VALUE);
-  const [maxSize, setMaxSize] = React.useState(NO_VALUE);
   // Filesystem and size selectors should not be auto refreshed before the user interacts with other
   // selectors like the mount point or the target selectors.
   const [autoRefreshFilesystem, setAutoRefreshFilesystem] = React.useState(false);
-  const [autoRefreshSize, setAutoRefreshSize] = React.useState(false);
 
   const initialValue = useInitialFormValue();
-  const value = { mountPoint, target, filesystem, filesystemLabel, sizeOption, minSize, maxSize };
+  const value = { mountPoint, filesystem, filesystemLabel };
   const { errors, getVisibleError } = useErrors(value);
 
   const device = useModelDevice();
   const unusedMountPoints = useUnusedMountPoints();
 
-  const addPartition = useAddPartition();
-  const editPartition = useEditPartition();
-
   // Initializes the form values if there is an initial value (i.e., when editing a partition).
   React.useEffect(() => {
     if (initialValue) {
       setMountPoint(initialValue.mountPoint);
-      setTarget(initialValue.target);
       setFilesystem(initialValue.filesystem);
       setFilesystemLabel(initialValue.filesystemLabel);
-      setSizeOption(initialValue.sizeOption);
-      setMinSize(initialValue.minSize);
-      setMaxSize(initialValue.maxSize);
     }
-  }, [
-    initialValue,
-    setMountPoint,
-    setTarget,
-    setFilesystem,
-    setFilesystemLabel,
-    setSizeOption,
-    setMinSize,
-    setMaxSize,
-  ]);
+  }, [initialValue]);
 
   const refreshFilesystemHandler = React.useCallback(
     (filesystem: string) => autoRefreshFilesystem && setFilesystem(filesystem),
@@ -742,57 +492,23 @@ export default function FormattableDevicePage() {
 
   useAutoRefreshFilesystem(refreshFilesystemHandler, value);
 
-  const refreshSizeHandler = React.useCallback(
-    (sizeOption: SizeOptionValue, minSize: string, maxSize: string) => {
-      if (autoRefreshSize) {
-        setSizeOption(sizeOption);
-        setMinSize(minSize);
-        setMaxSize(maxSize);
-      }
-    },
-    [autoRefreshSize, setSizeOption, setMinSize, setMaxSize],
-  );
-
-  useAutoRefreshSize(refreshSizeHandler, value);
-
   const changeMountPoint = (value: string) => {
     if (value !== mountPoint) {
       setAutoRefreshFilesystem(true);
-      setAutoRefreshSize(true);
       setMountPoint(value);
     }
   };
 
-  const changeTarget = (value: string) => {
-    setAutoRefreshFilesystem(true);
-    setAutoRefreshSize(true);
-    setTarget(value);
-  };
-
   const changeFilesystem = (value: string) => {
     setAutoRefreshFilesystem(false);
-    setAutoRefreshSize(false);
     setFilesystem(value);
-  };
-
-  const changeSizeMode = (mode: SizeMode, size: SizeRange) => {
-    setSizeOption(mode);
-    setMinSize(size.min);
-    if (mode === "custom" && initialValue?.sizeOption === "auto" && size.min !== size.max) {
-      // Automatically stop using a range of sizes when a range is used by default.
-      setMaxSize("");
-    } else {
-      setMaxSize(size.max);
-    }
   };
 
   const onSubmit = () => {
     const partitionConfig = toPartitionConfig(value);
     const { list, listIndex } = device;
 
-    if (initialValue) editPartition(list, listIndex, initialValue.mountPoint, partitionConfig);
-    else addPartition(list, listIndex, partitionConfig);
-
+    formatDevice(list, listIndex, initialValue.mountPoint, partitionConfig);
     navigate(PATHS.root);
   };
 
@@ -800,8 +516,6 @@ export default function FormattableDevicePage() {
   const mountPointError = getVisibleError("mountPoint");
   const usedMountPt = mountPointError ? NO_VALUE : mountPoint;
   const showLabel = filesystem !== NO_VALUE && filesystem !== REUSE_FILESYSTEM;
-  const sizeMode: SizeMode = sizeOption === "" ? "auto" : sizeOption;
-  const sizeRange: SizeRange = { min: minSize, max: maxSize };
 
   return (
     <Page id="partitionPage">
