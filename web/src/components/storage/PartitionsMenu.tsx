@@ -21,7 +21,7 @@
  */
 
 import React, { useId } from "react";
-import { Divider, Stack, Flex } from "@patternfly/react-core";
+import { Divider, Stack, Flex, StackItem } from "@patternfly/react-core";
 import { useNavigate, generatePath } from "react-router-dom";
 import Text from "~/components/core/Text";
 import Link from "~/components/core/Link";
@@ -138,6 +138,7 @@ export default function PartitionsMenu({ device }) {
   const toggleTextId = useId();
   const { isBoot, isTargetDevice, list, listIndex } = device;
   const newPartitionPath = generatePath(PATHS.addPartition, { list, listIndex });
+  const formatDevicePath = generatePath(PATHS.formatDevice, { list, listIndex });
   // TRANSLATORS: %s is the name of device, like '/dev/sda'.
   const detailsAriaLabel = sprintf(_("Details for %s"), device.name);
 
@@ -146,9 +147,18 @@ export default function PartitionsMenu({ device }) {
   if (!isBoot && !isTargetDevice && !hasPartitions) {
     return (
       <Flex gap={{ default: "gapXs" }}>
-        <Link variant="link" isInline to={newPartitionPath}>
-          {_("Add a new partition or mount an existing one")}
-        </Link>
+        <Stack>
+          <StackItem>
+            <Link variant="link" isInline to={newPartitionPath}>
+              {_("Add a new partition or mount an existing one")}
+            </Link>
+          </StackItem>
+          <StackItem>
+            <Link variant="link" isInline to={formatDevicePath}>
+              {_("Mount the disk")}
+            </Link>
+          </StackItem>
+        </Stack>
       </Flex>
     );
   }
