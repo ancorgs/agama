@@ -43,53 +43,41 @@ import {
 import { Page, SelectWrapper as Select } from "~/components/core/";
 import { SelectWrapperProps as SelectProps } from "~/components/core/SelectWrapper";
 import SelectTypeaheadCreatable from "~/components/core/SelectTypeaheadCreatable";
-import { useMissingMountPaths } from "~/hooks/storage/product";
+import { useMissingMountPaths, useVolume } from "~/hooks/storage/product";
 import { useModel } from "~/hooks/storage/model";
-import { useDevices, useVolume } from "~/queries/storage";
-import { StorageDevice } from "~/types/storage";
-import { deviceSize, filesystemLabel, parseToBytes } from "~/components/storage/utils";
+import { useDevices } from "~/queries/storage";
+import { data, model, StorageDevice } from "~/types/storage";
+import { filesystemLabel } from "~/components/storage/utils";
 import { _ } from "~/i18n";
 import { sprintf } from "sprintf-js";
 import { apiModel } from "~/api/storage/types";
 import { STORAGE as PATHS } from "~/routes/paths";
 import { unique } from "radashi";
 import { compact } from "~/utils";
-import { SizeMode } from "~/components/storage/SizeModeSelect";
 
 const NO_VALUE = "";
-const NEW_PARTITION = "new";
 const BTRFS_SNAPSHOTS = "btrfsSnapshots";
 const REUSE_FILESYSTEM = "reuse";
 
-type SizeOptionValue = "" | SizeMode;
+type DeviceModel = model.Drive | model.MdRaid;
+type DeviceData = data.Drive | data.MdRaid;
 type FormValue = {
   mountPoint: string;
-  target: string;
   filesystem: string;
   filesystemLabel: string;
-  sizeOption: SizeOptionValue;
-  minSize: string;
-  maxSize: string;
 };
 type Error = {
   id: string;
   message?: string;
   isVisible: boolean;
 };
-
 type ErrorsHandler = {
   errors: Error[];
   getError: (id: string) => Error | undefined;
   getVisibleError: (id: string) => Error | undefined;
 };
 
-function toPartitionConfig(value: FormValue): apiModel.Partition {
-  const name = (): string | undefined => {
-    if (value.target === NO_VALUE || value.target === NEW_PARTITION) return undefined;
-
-    return value.target;
-  };
-
+function toData(value: FormValue): DeviceData {
   const filesystemType = (): apiModel.FilesystemType | undefined => {
     if (value.filesystem === NO_VALUE) return undefined;
     if (value.filesystem === BTRFS_SNAPSHOTS) return "btrfs";
@@ -104,46 +92,31 @@ function toPartitionConfig(value: FormValue): apiModel.Partition {
     return value.filesystem as apiModel.FilesystemType;
   };
 
-  const filesystem = (): apiModel.Filesystem | undefined => {
-    if (value.filesystem === REUSE_FILESYSTEM) return { reuse: true, default: true };
+  const filesystem = (): data.Filesystem | undefined => {
+    if (value.filesystem === REUSE_FILESYSTEM) return { reuse: true };
 
     const type = filesystemType();
     if (type === undefined) return undefined;
 
     return {
-      default: false,
       type,
       snapshots: value.filesystem === BTRFS_SNAPSHOTS,
       label: value.filesystemLabel,
     };
   };
 
-  const size = (): apiModel.Size | undefined => {
-    if (value.sizeOption === "auto") return undefined;
-    if (value.minSize === NO_VALUE) return undefined;
-
-    return {
-      default: false,
-      min: parseToBytes(value.minSize),
-      max: value.maxSize === NO_VALUE ? undefined : parseToBytes(value.maxSize),
-    };
-  };
-
   return {
     mountPath: value.mountPoint,
-    name: name(),
     filesystem: filesystem(),
-    size: size(),
   };
 }
 
-function toFormValue(partitionConfig: apiModel.Partition): FormValue {
-  const mountPoint = (): string => partitionConfig.mountPath || NO_VALUE;
-
-  const target = (): string => partitionConfig.name || NEW_PARTITION;
+function toFormValue(deviceModel: DeviceModel): FormValue {
+  const mountPoint = (): string => deviceModel.mountPath || NO_VALUE;
 
   const filesystem = (): string => {
-    const fsConfig = partitionConfig.filesystem;
+    const fsConfig = deviceModel.filesystem;
+    if (!fsConfig) return NO_VALUE;
     if (fsConfig.reuse) return REUSE_FILESYSTEM;
     if (!fsConfig.type) return NO_VALUE;
     if (fsConfig.type === "btrfs" && fsConfig.snapshots) return BTRFS_SNAPSHOTS;
@@ -151,86 +124,47 @@ function toFormValue(partitionConfig: apiModel.Partition): FormValue {
     return fsConfig.type;
   };
 
-  const filesystemLabel = (): string => partitionConfig.filesystem?.label || NO_VALUE;
-
-  const sizeOption = (): SizeOptionValue => {
-    const reusePartition = partitionConfig.name !== undefined;
-    const sizeConfig = partitionConfig.size;
-    if (reusePartition) return NO_VALUE;
-    if (!sizeConfig || sizeConfig.default) return "auto";
-
-    return "custom";
-  };
-
-  const size = (value: number | undefined): string =>
-    value ? deviceSize(value, { exact: true }) : NO_VALUE;
+  const filesystemLabel = (): string => deviceModel.filesystem?.label || NO_VALUE;
 
   return {
     mountPoint: mountPoint(),
-    target: target(),
     filesystem: filesystem(),
     filesystemLabel: filesystemLabel(),
-    sizeOption: sizeOption(),
-    minSize: size(partitionConfig.size?.min),
-    maxSize: size(partitionConfig.size?.max),
   };
 }
 
-function useModelDevice() {
+function useDeviceModel(): DeviceModel {
   const { list, listIndex } = useParams();
   const model = useModel({ suspense: true });
   return model[list].at(listIndex);
 }
 
 function useDevice(): StorageDevice {
-  const modelDevice = useModelDevice();
+  const deviceModel = useDeviceModel();
   const devices = useDevices("system", { suspense: true });
-  return devices.find((d) => d.name === modelDevice.name);
+  return devices.find((d) => d.name === deviceModel.name);
 }
 
-function usePartition(target: string): StorageDevice | null {
+function useCurrentFilesystem(): string | null {
   const device = useDevice();
-
-  if (target === NEW_PARTITION) return null;
-
-  const partitions = device.partitionTable?.partitions || [];
-  return partitions.find((p: StorageDevice) => p.name === target);
-}
-
-function usePartitionFilesystem(target: string): string | null {
-  const partition = usePartition(target);
-  return partition?.filesystem?.type || null;
+  return device?.filesystem?.type || null;
 }
 
 function useDefaultFilesystem(mountPoint: string): string {
-  const volume = useVolume(mountPoint);
-
+  const volume = useVolume(mountPoint, { suspense: true });
   return volume.mountPath === "/" && volume.snapshots ? BTRFS_SNAPSHOTS : volume.fsType;
 }
 
-function useInitialPartitionConfig(): apiModel.Partition | null {
-  const { partitionId: mountPath } = useParams();
-  const device = useModelDevice();
-
-  return mountPath && device ? device.getPartition(mountPath) : null;
-}
-
 function useInitialFormValue(): FormValue | null {
-  const partitionConfig = useInitialPartitionConfig();
-
-  const value = React.useMemo(
-    () => (partitionConfig ? toFormValue(partitionConfig) : null),
-    [partitionConfig],
-  );
-
-  return value;
+  const deviceModel = useDeviceModel();
+  return React.useMemo(() => (deviceModel ? toFormValue(deviceModel) : null), [deviceModel]);
 }
 
 /** Unused predefined mount points. Includes the currently used mount point when editing. */
 function useUnusedMountPoints(): string[] {
   const unusedMountPaths = useMissingMountPaths();
-  const initialPartitionConfig = useInitialPartitionConfig();
-  return compact([initialPartitionConfig?.mountPath, ...unusedMountPaths]);
+  const deviceModel = useDeviceModel();
+  return compact([deviceModel?.mountPath, ...unusedMountPaths]);
 }
 
 function useUsableFilesystems(mountPoint: string): string[] {
@@ -265,7 +199,7 @@ function useUsableFilesystems(mountPoint: string): string[] {
 function useMountPointError(value: FormValue): Error | undefined {
   const model = useModel({ suspense: true });
   const mountPoints = model?.getMountPaths() || [];
-  const initialPartitionConfig = useInitialPartitionConfig();
+  const deviceModel = useDeviceModel();
   const mountPoint = value.mountPoint;
 
   if (mountPoint === NO_VALUE) {
@@ -285,7 +219,7 @@ function useMountPointError(value: FormValue): Error | undefined {
   }
 
   // Exclude itself when editing
-  const initialMountPoint = initialPartitionConfig?.mountPath;
+  const initialMountPoint = deviceModel?.mountPath;
   if (mountPoint !== initialMountPoint && mountPoints.includes(mountPoint)) {
     return {
       id: "mountPoint",
@@ -310,26 +244,22 @@ function useErrors(value: FormValue): ErrorsHandler {
 }
 
 function useAutoRefreshFilesystem(handler, value: FormValue) {
-  const { mountPoint, target } = value;
+  const { mountPoint } = value;
   const defaultFilesystem = useDefaultFilesystem(mountPoint);
   const usableFilesystems = useUsableFilesystems(mountPoint);
-  const partitionFilesystem = usePartitionFilesystem(target);
+  const currentFilesystem = useCurrentFilesystem();
 
   React.useEffect(() => {
     // Reset filesystem if there is no mount point yet.
     if (mountPoint === NO_VALUE) handler(NO_VALUE);
-    // Select default filesystem for the mount point.
-    if (mountPoint !== NO_VALUE && target === NEW_PARTITION) handler(defaultFilesystem);
-    // Select default filesystem for the mount point if the partition has no filesystem.
-    if (mountPoint !== NO_VALUE && target !== NEW_PARTITION && !partitionFilesystem)
-      handler(defaultFilesystem);
-    // Reuse the filesystem from the partition if possible.
-    if (mountPoint !== NO_VALUE && target !== NEW_PARTITION && partitionFilesystem) {
-      // const reuse = usableFilesystems.includes(partitionFilesystem);
-      const reuse = usableFilesystems.includes(partitionFilesystem);
+    // Select default filesystem for the mount point if the device has no filesystem.
+    if (mountPoint !== NO_VALUE && !currentFilesystem) handler(defaultFilesystem);
+    // Reuse the filesystem from the device if possible.
+    if (mountPoint !== NO_VALUE && currentFilesystem) {
+      const reuse = usableFilesystems.includes(currentFilesystem);
       handler(reuse ? REUSE_FILESYSTEM : defaultFilesystem);
     }
-  }, [handler, mountPoint, target, defaultFilesystem, usableFilesystems, partitionFilesystem]);
+  }, [handler, mountPoint, defaultFilesystem, usableFilesystems, currentFilesystem]);
 }
 
 function mountPointSelectOptions(mountPoints: string[]): SelectOptionProps[] {
@@ -338,12 +268,10 @@ function mountPointSelectOptions(mountPoints: string[]): SelectOptionProps[] {
 
 type FilesystemOptionLabelProps = {
   value: string;
-  target: string;
 };
 
-function FilesystemOptionLabel({ value, target }: FilesystemOptionLabelProps): React.ReactNode {
-  const partition = usePartition(target);
-  const filesystem = partition?.filesystem?.type;
+function FilesystemOptionLabel({ value }: FilesystemOptionLabelProps): React.ReactNode {
+  const filesystem = useCurrentFilesystem();
   if (value === NO_VALUE) return _("Waiting for a mount point");
   // TRANSLATORS: %s is a filesystem type, like Btrfs
   if (value === REUSE_FILESYSTEM && filesystem)
@@ -355,37 +283,37 @@ function FilesystemOptionLabel({ value, target }: FilesystemOptionLabelProps): R
 
 type FilesystemOptionsProps = {
   mountPoint: string;
-  target: string;
 };
 
-function FilesystemOptions({ mountPoint, target }: FilesystemOptionsProps): React.ReactNode {
+function FilesystemOptions({ mountPoint }: FilesystemOptionsProps): React.ReactNode {
+  const device = useDevice();
   const volume = useVolume(mountPoint);
   const defaultFilesystem = useDefaultFilesystem(mountPoint);
   const usableFilesystems = useUsableFilesystems(mountPoint);
-  const partitionFilesystem = usePartitionFilesystem(target);
-  const canReuse = partitionFilesystem && usableFilesystems.includes(partitionFilesystem);
+  const currentFilesystem = useCurrentFilesystem();
+  const canReuse = currentFilesystem && usableFilesystems.includes(currentFilesystem);
 
   const defaultOptText = volume.mountPath
     ? sprintf(_("Default file system for %s"), mountPoint)
-    : _("Default file system for generic partitions");
-  const formatText = partitionFilesystem
-    ? _("Destroy current data and format partition as")
-    : _("Format partition as");
+    : _("Default file system");
+  const formatText = currentFilesystem
+    ? _("Destroy current data and format device as")
+    : _("Format device as");
 
   return (
     <SelectList aria-label="Available file systems">
       {mountPoint === NO_VALUE && (
         <SelectOption value={NO_VALUE}>
-          <FilesystemOptionLabel value={NO_VALUE} target={target} />
+          <FilesystemOptionLabel value={NO_VALUE} />
         </SelectOption>
       )}
       {mountPoint !== NO_VALUE && canReuse && (
         <SelectOption
           value={REUSE_FILESYSTEM}
-          // TRANSLATORS: %s is the name of a partition, like /dev/vda2
-          description={sprintf(_("Do not format %s and keep the data"), target)}
+          // TRANSLATORS: %s is the name of a device, like /dev/vda
+          description={sprintf(_("Do not format %s and keep the current data"), device.name)}
         >
-          <FilesystemOptionLabel value={REUSE_FILESYSTEM} target={target} />
+          <FilesystemOptionLabel value={REUSE_FILESYSTEM} />
         </SelectOption>
       )}
       {mountPoint !== NO_VALUE && canReuse && usableFilesystems.length && <Divider />}
@@ -397,7 +325,7 @@ function FilesystemOptions({ mountPoint, target }: FilesystemOptionsProps): Reac
               value={fsType}
               description={fsType === defaultFilesystem && defaultOptText}
             >
-              <FilesystemOptionLabel value={fsType} target={target} />
+              <FilesystemOptionLabel value={fsType} />
             </SelectOption>
           ))}
         </SelectGroup>
@@ -410,7 +338,6 @@ type FilesystemSelectProps = {
   id?: string;
   value: string;
   mountPoint: string;
-  target: string;
   onChange: SelectProps["onChange"];
 };
 
@@ -418,7 +345,6 @@ function FilesystemSelect({
   id,
   value,
   mountPoint,
-  target,
   onChange,
 }: FilesystemSelectProps): React.ReactNode {
   const usedValue = mountPoint === NO_VALUE ? NO_VALUE : value;
@@ -427,11 +353,11 @@ function FilesystemSelect({
     <Select
       id={id}
       value={usedValue}
-      label={<FilesystemOptionLabel value={usedValue} target={target} />}
+      label={<FilesystemOptionLabel value={usedValue} />}
       onChange={onChange}
       isDisabled={mountPoint === NO_VALUE}
     >
-      <FilesystemOptions mountPoint={mountPoint} target={target} />
+      <FilesystemOptions mountPoint={mountPoint} />
     </Select>
   );
 }
@@ -473,10 +399,10 @@ export default function FormattableDevicePage() {
   const value = { mountPoint, filesystem, filesystemLabel };
   const { errors, getVisibleError } = useErrors(value);
 
-  const device = useModelDevice();
+  const device = useDeviceModel();
   const unusedMountPoints = useUnusedMountPoints();
 
-  // Initializes the form values if there is an initial value (i.e., when editing a partition).
+  // Initializes the form values.
   React.useEffect(() => {
     if (initialValue) {
       setMountPoint(initialValue.mountPoint);
@@ -505,10 +431,11 @@ export default function FormattableDevicePage() {
   };
 
   const onSubmit = () => {
-    const partitionConfig = toPartitionConfig(value);
+    const data = toData(value);
     const { list, listIndex } = device;
 
-    formatDevice(list, listIndex, initialValue.mountPoint, partitionConfig);
+    // formatDevice(list, listIndex, initialValue.mountPoint, partitionConfig);
+    console.log(list, listIndex, data);
     navigate(PATHS.root);
   };
 
@@ -518,7 +445,7 @@ export default function FormattableDevicePage() {
   const showLabel = filesystem !== NO_VALUE && filesystem !== REUSE_FILESYSTEM;
 
   return (
-    <Page id="partitionPage">
+    <Page id="formattablePage">
       <Page.Header>
         <Content component="h2" id={headingId}>
           {sprintf(_("Configure device %s"), device.name)}
@@ -526,7 +453,7 @@ export default function FormattableDevicePage() {
       </Page.Header>
 
       <Page.Content>
-        <Form id="partitionForm" aria-labelledby={headingId} onSubmit={onSubmit}>
+        <Form id="formattableForm" aria-labelledby={headingId} onSubmit={onSubmit}>
           <Stack hasGutter>
             <FormGroup fieldId="mountPoint" label={_("Mount point")}>
               <Flex>
@@ -561,7 +488,6 @@ export default function FormattableDevicePage() {
                       id="fileSystem"
                       value={filesystem}
                       mountPoint={usedMountPt}
-                      target={target}
                       onChange={changeFilesystem}
                     />
                   </FormGroup>
@@ -580,7 +506,7 @@ export default function FormattableDevicePage() {
               </Flex>
             </FormGroup>
             <ActionGroup>
-              <Page.Submit isDisabled={!isFormValid} form="partitionForm" />
+              <Page.Submit isDisabled={!isFormValid} form="formattableForm" />
               <Page.Cancel />
             </ActionGroup>
           </Stack>
