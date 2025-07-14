@@ -22,6 +22,7 @@
 
 import { useApiModel, useUpdateApiModel } from "~/hooks/storage/api-model";
 import { addDrive, deleteDrive, switchToDrive } from "~/helpers/storage/drive";
+import { formatDevice } from "~/helpers/storage/formattable";
 import { QueryHookOptions } from "~/types/queries";
 import { model, data } from "~/types/storage";
 import { useModel } from "~/hooks/storage/model";
@@ -62,5 +63,15 @@ function useSwitchToDrive(options?: QueryHookOptions): SwitchToDriveFn {
   };
 }
 
-export { useDrive, useAddDrive, useDeleteDrive, useSwitchToDrive };
+type FormatDriveFn = (index: number, data: data.Formattable) => void;
+
+function useFormatDrive(options?: QueryHookOptions): FormatDriveFn {
+  const apiModel = useApiModel(options);
+  const updateApiModel = useUpdateApiModel();
+  return (index: number, data: data.Formattable) => {
+    updateApiModel(formatDevice(apiModel, "drives", index, data));
+  };
+}
+
+export { useDrive, useAddDrive, useDeleteDrive, useSwitchToDrive, useFormatDrive };
 export type { AddDriveFn, DeleteDriveFn, SwitchToDriveFn };

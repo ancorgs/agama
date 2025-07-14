@@ -44,6 +44,7 @@ import { Page, SelectWrapper as Select } from "~/components/core/";
 import { SelectWrapperProps as SelectProps } from "~/components/core/SelectWrapper";
 import SelectTypeaheadCreatable from "~/components/core/SelectTypeaheadCreatable";
 import { useMissingMountPaths, useVolume } from "~/hooks/storage/product";
+import { useFormatDrive } from "~/hooks/storage/drive";
 import { useModel } from "~/hooks/storage/model";
 import { useDevices } from "~/queries/storage";
 import { data, model, StorageDevice } from "~/types/storage";
@@ -60,7 +61,6 @@ const BTRFS_SNAPSHOTS = "btrfsSnapshots";
 const REUSE_FILESYSTEM = "reuse";
 
 type DeviceModel = model.Drive | model.MdRaid;
-type DeviceData = data.Drive | data.MdRaid;
 type FormValue = {
   mountPoint: string;
   filesystem: string;
@@ -77,7 +77,7 @@ type ErrorsHandler = {
   getVisibleError: (id: string) => Error | undefined;
 };
 
-function toData(value: FormValue): DeviceData {
+function toData(value: FormValue): data.Formattable {
   const filesystemType = (): apiModel.FilesystemType | undefined => {
     if (value.filesystem === NO_VALUE) return undefined;
     if (value.filesystem === BTRFS_SNAPSHOTS) return "btrfs";
@@ -401,6 +401,7 @@ export default function FormattableDevicePage() {
 
   const device = useDeviceModel();
   const unusedMountPoints = useUnusedMountPoints();
+  const formatDrive = useFormatDrive();
 
   // Initializes the form values.
   React.useEffect(() => {
@@ -432,10 +433,10 @@ export default function FormattableDevicePage() {
 
   const onSubmit = () => {
     const data = toData(value);
-    const { list, listIndex } = device;
+    const { listIndex } = device;
 
-    // formatDevice(list, listIndex, initialValue.mountPoint, partitionConfig);
-    console.log(list, listIndex, data);
+    formatDrive(listIndex, data);
+    console.log("format: ", listIndex, data);
     navigate(PATHS.root);
   };
 

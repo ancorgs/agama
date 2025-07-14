@@ -55,28 +55,30 @@ type SpacePolicy = {
   actions?: SpacePolicyAction[];
 };
 
+type Formattable = {
+  mountPath: string;
+  filesystem?: Filesystem;
+};
+
 type MdRaid = {
   name: string;
   spacePolicy?: apiModel.SpacePolicy;
-  mountPath: string;
-  filesystem?: Filesystem;
 };
 
 type Drive = {
   name: string;
   spacePolicy?: apiModel.SpacePolicy;
-  mountPath: string;
-  filesystem?: Filesystem;
 };
 
 export type {
   Drive,
+  Filesystem,
+  Formattable,
+  LogicalVolume,
   MdRaid,
   Partition,
-  VolumeGroup,
-  LogicalVolume,
-  Filesystem,
   Size,
   SpacePolicy,
   SpacePolicyAction,
+  VolumeGroup,
 };
