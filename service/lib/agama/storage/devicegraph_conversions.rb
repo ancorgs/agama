@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Copyright (c) [2024] SUSE LLC
+# Copyright (c) [2025] SUSE LLC
 #
 # All Rights Reserved.
 #
@@ -19,27 +19,12 @@
 # To contact SUSE LLC about this file by physical or electronic mail, you may
 # find current contact information at www.suse.com.
 
-require_relative "../../test_helper"
-require "agama/config"
-require "agama/storage/volume"
-require "y2storage/volume_specification"
+require "agama/storage/devicegraph_conversions/to_json"
 
-describe Agama::Storage::Volume do
-  describe "#to_json_settngs" do
-    let(:volume) { Agama::Storage::Volume.new("/test") }
-
-    it "generates a JSON hash according to schema" do
-      result = volume.to_json_settings
-      expect(result).to be_a(Hash)
-    end
-  end
-
-  describe "#to_y2storage" do
-    let(:volume) { Agama::Storage::Volume.new("/test") }
-
-    it "generates a Y2Storage volume spec" do
-      result = volume.to_y2storage
-      expect(result).to be_a(Y2Storage::VolumeSpecification)
+module Agama
+  module Storage
+    # Conversions for the Y2Storage devicegraph
+    module DevicegraphConversion
     end
   end
 end

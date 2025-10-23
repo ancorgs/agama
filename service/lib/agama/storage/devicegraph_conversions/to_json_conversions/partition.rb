@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Copyright (c) [2024] SUSE LLC
+# Copyright (c) [2025] SUSE LLC
 #
 # All Rights Reserved.
 #
@@ -19,27 +19,34 @@
 # To contact SUSE LLC about this file by physical or electronic mail, you may
 # find current contact information at www.suse.com.
 
-require_relative "../../test_helper"
-require "agama/config"
-require "agama/storage/volume"
-require "y2storage/volume_specification"
+require "agama/storage/devicegraph_conversions/to_json_conversions/section"
 
-describe Agama::Storage::Volume do
-  describe "#to_json_settngs" do
-    let(:volume) { Agama::Storage::Volume.new("/test") }
+module Agama
+  module Storage
+    module DevicegraphConversions
+      module ToJSONConversions
+        # Section with properties for partitions.
+        class Partition < Section
+          # @see Section.apply?
+          def self.apply?(storage_device)
+            storage_device.is?(:partition)
+          end
 
-    it "generates a JSON hash according to schema" do
-      result = volume.to_json_settings
-      expect(result).to be_a(Hash)
-    end
-  end
+        private
 
-  describe "#to_y2storage" do
-    let(:volume) { Agama::Storage::Volume.new("/test") }
+          # @see Section#conversions
+          def conversions
+            { efi: partition_efi }
+          end
 
-    it "generates a Y2Storage volume spec" do
-      result = volume.to_y2storage
-      expect(result).to be_a(Y2Storage::VolumeSpecification)
+          # Whether it is a (valid) EFI System partition
+          #
+          # @return [Boolean]
+          def partition_efi
+            storage_device.efi_system?
+          end
+        end
+      end
     end
   end
 end
