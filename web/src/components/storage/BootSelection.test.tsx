@@ -24,9 +24,6 @@ import React from "react";
 import { screen, waitFor, within } from "@testing-library/react";
 import { installerRender } from "~/test-utils";
 import BootSelection from "./BootSelection";
-import { System } from "~/model/system";
-import { Config } from "~/openapi/storage/config-model";
-import { putStorageModel } from "~/api";
 
 // FIXME: drop this mock once a better solution for dealing with
 // ProductRegistrationAlert, which uses a query with suspense,
@@ -34,43 +31,27 @@ jest.mock("~/components/product/ProductRegistrationAlert", () => () => (
   <div>ProductRegistrationAlert Mock</div>
 ));
 
-const network = {
-  connections: [],
-  devices: [],
-  state: {
-    connectivity: true,
-    copyNetwork: true,
-    networkingEnabled: true,
-    wirelessEnabled: true,
+const mockDevices = [
+  {
+    sid: 1,
+    class: "drive",
+    name: "/dev/sda",
   },
-  accessPoints: [],
-};
-
-const system = (): System => ({
-  network,
-  storage: {
-    devices: [
-      {
-        sid: 1,
-        class: "drive",
-        name: "/dev/sda",
-      },
-      {
-        sid: 2,
-        class: "drive",
-        name: "/dev/sdb",
-      },
-      {
-        sid: 3,
-        class: "drive",
-        name: "/dev/sdc",
-      },
-    ],
-    candidateDrives: [1, 2],
+  {
+    sid: 2,
+    class: "drive",
+    name: "/dev/sdb",
   },
-});
+  {
+    sid: 3,
+    class: "drive",
+    name: "/dev/sdc",
+  },
+];
 
-const storageModel = (): Config => ({
+const mockCandidateDevices = [mockDevices[0], mockDevices[1]];
+
+const mockConfigModel = {
   boot: {
     configure: true,
     device: {
@@ -78,21 +59,48 @@ const storageModel = (): Config => ({
       name: "/dev/sda",
     },
   },
-});
+  drives: [],
+  mdRaids: [],
+};
 
-const getSystem = jest.fn();
-const getStorageModel = jest.fn();
+const mockModel = {
+  drives: [],
+  mdRaids: [],
+};
 
-jest.mock("~/api", () => ({
-  ...jest.requireActual("~/api"),
-  getSystem: () => getSystem(),
-  getStorageModel: () => getStorageModel(),
-  putStorageModel: jest.fn(),
+const mockUseDevices = jest.fn();
+const mockUseCandidateDevices = jest.fn();
+const mockUseModel = jest.fn();
+const mockUseConfigModel = jest.fn();
+const mockSetBootDevice = jest.fn();
+const mockSetDefaultBootDevice = jest.fn();
+const mockDisableBootConfig = jest.fn();
+
+jest.mock("~/hooks/model/system/storage", () => ({
+  useDevices: () => mockUseDevices(),
+  useCandidateDevices: () => mockUseCandidateDevices(),
+}));
+
+jest.mock("~/hooks/storage/model", () => ({
+  useModel: () => mockUseModel(),
+}));
+
+jest.mock("~/hooks/model/storage", () => ({
+  useConfigModel: () => mockUseConfigModel(),
+}));
+
+jest.mock("~/hooks/storage/boot", () => ({
+  useSetBootDevice: () => mockSetBootDevice,
+  useSetDefaultBootDevice: () => mockSetDefaultBootDevice,
+  useDisableBootConfig: () => mockDisableBootConfig,
 }));
 
 beforeEach(() => {
-  getSystem.mockResolvedValue(system());
-  getStorageModel.mockResolvedValue(storageModel());
+  jest.clearAllMocks();
+  mockUseDevices.mockReturnValue(mockDevices);
+  mockUseCandidateDevices.mockReturnValue(mockCandidateDevices);
+  mockUseModel.mockReturnValue(mockModel);
+  mockUseConfigModel.mockReturnValue(mockConfigModel);
 });
 
 describe("BootSelectionDialog", () => {
@@ -137,9 +145,16 @@ describe("BootSelectionDialog", () => {
 
   describe("if the current value is set to boot from a selected disk", () => {
     beforeEach(() => {
-      const model = storageModel();
-      model.boot.device.default = false;
-      getStorageModel.mockResolvedValue(model);
+      mockUseConfigModel.mockReturnValue({
+        ...mockConfigModel,
+        boot: {
+          configure: true,
+          device: {
+            default: false,
+            name: "/dev/sda",
+          },
+        },
+      });
     });
 
     it("selects 'Select a disk' option by default", async () => {
@@ -155,9 +170,10 @@ describe("BootSelectionDialog", () => {
 
   describe("if the current value is set to not configure boot", () => {
     beforeEach(() => {
-      const model = storageModel();
-      model.boot.configure = false;
-      getStorageModel.mockResolvedValue(model);
+      mockUseConfigModel.mockReturnValue({
+        ...mockConfigModel,
+        boot: { configure: false },
+      });
     });
 
     it("selects 'Do not configure' option by default", async () => {
@@ -173,10 +189,17 @@ describe("BootSelectionDialog", () => {
 
   describe("if the current boot device is not a candidate device", () => {
     beforeEach(() => {
-      const model = storageModel();
-      model.boot.device.name = "/dev/sdc";
-      model.drives = [{ name: "/dev/sdc" }];
-      getStorageModel.mockResolvedValue(model);
+      mockUseConfigModel.mockReturnValue({
+        ...mockConfigModel,
+        boot: {
+          configure: true,
+          device: {
+            default: false,
+            name: "/dev/sdc",
+          },
+        },
+        drives: [{ name: "/dev/sdc" }],
+      });
     });
 
     it("offers the current boot device as an option", async () => {
@@ -193,7 +216,9 @@ describe("BootSelectionDialog", () => {
     await waitFor(() => expect(diskSelector()).toBeInTheDocument());
     const cancel = screen.getByRole("link", { name: "Cancel" });
     await user.click(cancel);
-    expect(putStorageModel).not.toHaveBeenCalled();
+    expect(mockSetBootDevice).not.toHaveBeenCalled();
+    expect(mockSetDefaultBootDevice).not.toHaveBeenCalled();
+    expect(mockDisableBootConfig).not.toHaveBeenCalled();
   });
 
   it("applies the expected boot options when 'Automatic' is selected", async () => {
@@ -202,16 +227,9 @@ describe("BootSelectionDialog", () => {
     await user.click(automaticOption());
     const accept = screen.getByRole("button", { name: "Accept" });
     await user.click(accept);
-    expect(putStorageModel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        boot: {
-          configure: true,
-          device: {
-            default: true,
-          },
-        },
-      }),
-    );
+    expect(mockSetDefaultBootDevice).toHaveBeenCalled();
+    expect(mockSetBootDevice).not.toHaveBeenCalled();
+    expect(mockDisableBootConfig).not.toHaveBeenCalled();
   });
 
   it("applies the expected boot options when a disk is selected", async () => {
@@ -223,17 +241,9 @@ describe("BootSelectionDialog", () => {
     await user.selectOptions(selector, sdbOption);
     const accept = screen.getByRole("button", { name: "Accept" });
     await user.click(accept);
-    expect(putStorageModel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        boot: {
-          configure: true,
-          device: {
-            default: false,
-            name: "/dev/sdb",
-          },
-        },
-      }),
-    );
+    expect(mockSetBootDevice).toHaveBeenCalledWith("/dev/sdb");
+    expect(mockSetDefaultBootDevice).not.toHaveBeenCalled();
+    expect(mockDisableBootConfig).not.toHaveBeenCalled();
   });
 
   it("applies the expected boot options when 'No configure' is selected", async () => {
@@ -242,12 +252,8 @@ describe("BootSelectionDialog", () => {
     await user.click(notConfigureOption());
     const accept = screen.getByRole("button", { name: "Accept" });
     await user.click(accept);
-    expect(putStorageModel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        boot: {
-          configure: false,
-        },
-      }),
-    );
+    expect(mockDisableBootConfig).toHaveBeenCalled();
+    expect(mockSetBootDevice).not.toHaveBeenCalled();
+    expect(mockSetDefaultBootDevice).not.toHaveBeenCalled();
   });
 });
