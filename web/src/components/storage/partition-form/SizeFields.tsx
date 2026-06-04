@@ -110,7 +110,6 @@ function useSolvedSizes(
   committedMountPoint: string,
   name: string,
   filesystem: string,
-  filesystemLabel: string,
 ): { min: string; max: string } | null {
   const { collection, index } = useParams();
   const model = useConfigModel();
@@ -120,68 +119,62 @@ function useSolvedSizes(
     location?.index !== undefined ? location.index : 0,
   );
 
-  // Build a sparse partition config with automatic sizing (size = undefined)
-  const sparseModel = useMemo(() => {
-    // Don't calculate solved sizes for reused partitions or empty mount points
-    if (!committedMountPoint || isReusingPartition(name) || !device || !location) {
-      return undefined;
-    }
+  // Don't calculate solved sizes for reused partitions or empty mount points
+  if (!committedMountPoint || isReusingPartition(name) || !device || !location) {
+    return null;
+  }
 
-    // Skip if filesystem is not selected or is reuse action
-    if (filesystem === "" || filesystem === FILESYSTEM_ACTION.REUSE) {
-      return undefined;
-    }
+  // Skip if filesystem is not selected or is reuse action
+  if (filesystem === "" || filesystem === FILESYSTEM_ACTION.REUSE) {
+    return null;
+  }
 
-    const modelCollection = collection === "drives" ? "drives" : "mdRaids";
+  const modelCollection = collection === "drives" ? "drives" : "mdRaids";
 
-    // Build partition config without size (forcing automatic calculation)
-    const partitionConfig: ConfigModel.Partition = {
-      mountPath: committedMountPoint,
-      name: undefined, // Always treat as new partition for size calculation
-      filesystem:
-        filesystem === FILESYSTEM_TYPE.AUTO
-          ? undefined
-          : {
-              default: false,
-              type: filesystem as ConfigModel.FilesystemType,
-              // Omit label from the sparse model used for size calculation
-              label: undefined,
-            },
-      size: undefined, // Force automatic sizing
-    };
+  // Build partition config without size (forcing automatic calculation)
+  const partitionConfig: ConfigModel.Partition = {
+    mountPath: committedMountPoint,
+    name: undefined, // Always treat as new partition for size calculation
+    filesystem:
+      filesystem === FILESYSTEM_TYPE.AUTO
+        ? undefined
+        : {
+            default: false,
+            type: filesystem as ConfigModel.FilesystemType,
+            // Omit label from the sparse model used for size calculation
+            label: undefined,
+          },
+    size: undefined, // Force automatic sizing
+  };
 
-    try {
-      return configModel.partition.add(model, modelCollection, Number(index), partitionConfig);
-    } catch {
-      return undefined;
-    }
-  }, [committedMountPoint, name, filesystem, filesystemLabel, device, location, collection, index, model]);
+  let sparseModel: ConfigModel.Config | undefined;
+  try {
+    sparseModel = configModel.partition.add(model, modelCollection, Number(index), partitionConfig);
+  } catch {
+    return null;
+  }
 
   // Solve the model to get calculated sizes
   const solvedModel = useSolvedConfigModel(sparseModel);
 
-  // Extract the solved partition and format its sizes
-  return useMemo(() => {
-    if (!solvedModel || !location) return null;
+  if (!solvedModel) return null;
 
-    const solvedDevice = findPartitionableDevice(solvedModel, collection, index);
-    const solvedPartition = solvedDevice?.partitions?.find(
-      (p) => p.mountPath === committedMountPoint,
-    );
+  const solvedDevice = findPartitionableDevice(solvedModel, collection, index);
+  const solvedPartition = solvedDevice?.partitions?.find(
+    (p) => p.mountPath === committedMountPoint,
+  );
 
-    if (!solvedPartition?.size) return null;
+  if (!solvedPartition?.size) return null;
 
-    return {
-      min: solvedPartition.size.min ? deviceSize(solvedPartition.size.min) : "",
-      max: solvedPartition.size.max ? deviceSize(solvedPartition.size.max) : "",
-    };
-  }, [solvedModel, location, collection, index, committedMountPoint]);
+  return {
+    min: solvedPartition.size.min ? deviceSize(solvedPartition.size.min) : "",
+    max: solvedPartition.size.max ? deviceSize(solvedPartition.size.max) : "",
+  };
 }
 
 type SizeFieldsContentProps = {
   committedMountPoint: string;
   filesystem: string;
-  filesystemLabel: string;
   name: string;
   sizeMode: SizeMode;
 };
@@ -288,7 +281,7 @@ const SizeFieldsContent = withForm({
     name: "",
     sizeMode: SIZE_MODE.AUTO,
   } as SizeFieldsContentProps,
-  render: function Render({ form, committedMountPoint, filesystem, filesystemLabel, name, sizeMode }) {
+  render: function Render({ form, committedMountPoint, filesystem, name, sizeMode }) {
     // Use committedMountPoint (not live mountPoint) to avoid reacting to incomplete input.
     // This prevents showing misleading size hints while user types "/ho..." and avoids
     // expensive useVolumeTemplate recalculations on every keystroke.
@@ -297,7 +290,7 @@ const SizeFieldsContent = withForm({
     const effectiveFilesystem = filesystem === FILESYSTEM_TYPE.AUTO ? volume?.fsType : filesystem;
 
     // Calculate solved sizes based on the current configuration
-    const solvedSizes = useSolvedSizes(committedMountPoint, name, filesystem, filesystemLabel);
+    const solvedSizes = useSolvedSizes(committedMountPoint, name, filesystem);
 
     const automaticSizeNote = useAutomaticSizeNote(
       volume,
@@ -387,11 +380,10 @@ const SizeFields = withForm({
           selector={(s) => ({
             committedMountPoint: s.values.committedMountPoint,
             filesystem: s.values.filesystem,
-            filesystemLabel: s.values.filesystemLabel,
             name: s.values.name,
           })}
         >
-          {({ committedMountPoint, filesystem, filesystemLabel, name }) => (
+          {({ committedMountPoint, filesystem, name }) => (
             <form.AppField name="sizeMode">
               {(field) => (
                 <field.DropdownField label={_("Size")} options={getSizeModeOptions()}>
@@ -404,7 +396,6 @@ const SizeFields = withForm({
                           form={form}
                           committedMountPoint={committedMountPoint}
                           filesystem={filesystem}
-                          filesystemLabel={filesystemLabel}
                           name={name}
                           sizeMode={value}
                         />
