@@ -147,6 +147,9 @@ type SizeFields = {
   rangeMaxSize: string;
   // EXPAND mode
   expandMinSize: string;
+  // Solved sizes (calculated by backend for automatic mode)
+  solvedMinSize: string;
+  solvedMaxSize: string;
 };
 
 type FormFields = MountPointFields & PartitionFields & FilesystemFields & SizeFields;
@@ -168,6 +171,8 @@ const defaultValues: FormFields = {
   rangeMinSize: "",
   rangeMaxSize: "",
   expandMinSize: "",
+  solvedMinSize: "",
+  solvedMaxSize: "",
 };
 
 export const defaultOptions = formOptions({ defaultValues });
