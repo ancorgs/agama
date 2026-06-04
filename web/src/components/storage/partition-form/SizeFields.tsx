@@ -119,57 +119,63 @@ function useSolvedSizes(
     location?.index !== undefined ? location.index : 0,
   );
 
-  // Don't calculate solved sizes for reused partitions or empty mount points
-  if (!committedMountPoint || isReusingPartition(name) || !device || !location) {
-    return null;
-  }
+  // Build a sparse model only when conditions are met
+  // Must be calculated before calling useSolvedConfigModel (hooks must be called unconditionally)
+  const sparseModel = useMemo(() => {
+    // Don't calculate solved sizes for reused partitions or empty mount points
+    if (!committedMountPoint || isReusingPartition(name) || !device || !location) {
+      return undefined;
+    }
 
-  // Skip if filesystem is not selected or is reuse action
-  if (filesystem === "" || filesystem === FILESYSTEM_ACTION.REUSE) {
-    return null;
-  }
+    // Skip if filesystem is not selected or is reuse action
+    if (filesystem === "" || filesystem === FILESYSTEM_ACTION.REUSE) {
+      return undefined;
+    }
 
-  const modelCollection = collection === "drives" ? "drives" : "mdRaids";
+    const modelCollection = collection === "drives" ? "drives" : "mdRaids";
 
-  // Build partition config without size (forcing automatic calculation)
-  const partitionConfig: ConfigModel.Partition = {
-    mountPath: committedMountPoint,
-    name: undefined, // Always treat as new partition for size calculation
-    filesystem:
-      filesystem === FILESYSTEM_TYPE.AUTO
-        ? undefined
-        : {
-            default: false,
-            type: filesystem as ConfigModel.FilesystemType,
-            // Omit label from the sparse model used for size calculation
-            label: undefined,
-          },
-    size: undefined, // Force automatic sizing
-  };
+    // Build partition config without size (forcing automatic calculation)
+    const partitionConfig: ConfigModel.Partition = {
+      mountPath: committedMountPoint,
+      name: undefined, // Always treat as new partition for size calculation
+      filesystem:
+        filesystem === FILESYSTEM_TYPE.AUTO
+          ? undefined
+          : {
+              default: false,
+              type: filesystem as ConfigModel.FilesystemType,
+              // Omit label from the sparse model used for size calculation
+              label: undefined,
+            },
+      size: undefined, // Force automatic sizing
+    };
 
-  let sparseModel: ConfigModel.Config | undefined;
-  try {
-    sparseModel = configModel.partition.add(model, modelCollection, Number(index), partitionConfig);
-  } catch {
-    return null;
-  }
+    try {
+      return configModel.partition.add(model, modelCollection, Number(index), partitionConfig);
+    } catch {
+      return undefined;
+    }
+  }, [committedMountPoint, name, filesystem, device, location, collection, index, model]);
 
-  // Solve the model to get calculated sizes
+  // Always call the hook (Rules of Hooks), but pass undefined when we shouldn't calculate
   const solvedModel = useSolvedConfigModel(sparseModel);
 
-  if (!solvedModel) return null;
+  // Extract and format the solved sizes
+  return useMemo(() => {
+    if (!solvedModel || !location) return null;
 
-  const solvedDevice = findPartitionableDevice(solvedModel, collection, index);
-  const solvedPartition = solvedDevice?.partitions?.find(
-    (p) => p.mountPath === committedMountPoint,
-  );
+    const solvedDevice = findPartitionableDevice(solvedModel, collection, index);
+    const solvedPartition = solvedDevice?.partitions?.find(
+      (p) => p.mountPath === committedMountPoint,
+    );
 
-  if (!solvedPartition?.size) return null;
+    if (!solvedPartition?.size) return null;
 
-  return {
-    min: solvedPartition.size.min ? deviceSize(solvedPartition.size.min) : "",
-    max: solvedPartition.size.max ? deviceSize(solvedPartition.size.max) : "",
-  };
+    return {
+      min: solvedPartition.size.min ? deviceSize(solvedPartition.size.min) : "",
+      max: solvedPartition.size.max ? deviceSize(solvedPartition.size.max) : "",
+    };
+  }, [solvedModel, location, collection, index, committedMountPoint]);
 }
 
 type SizeFieldsContentProps = {
