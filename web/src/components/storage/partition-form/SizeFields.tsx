@@ -149,9 +149,9 @@ function useSolvedSizes(
     try {
       const initialPartitionCfg = configModel.partitionable.findPartition(device, mountPoint);
       const idx = Number(index);
-      return initialPartitionCfg ?
-        configModel.partition.edit(model, modelCollection, idx), mountPoint, partitionConfig) :
-        configModel.partition.add(model, modelCollection, idx, partitionConfig);
+      return initialPartitionCfg
+        ? configModel.partition.edit(model, modelCollection, idx, mountPoint, partitionConfig)
+        : configModel.partition.add(model, modelCollection, idx, partitionConfig);
     } catch {
       return undefined;
     }
@@ -165,9 +165,7 @@ function useSolvedSizes(
     if (!solvedModel || !location) return null;
 
     const solvedDevice = findPartitionableDevice(solvedModel, collection, index);
-    const solvedPartition = solvedDevice?.partitions?.find(
-      (p) => p.mountPath === mountPoint,
-    );
+    const solvedPartition = solvedDevice?.partitions?.find((p) => p.mountPath === mountPoint);
 
     if (!solvedPartition?.size) return null;
 
