@@ -34,7 +34,6 @@ import {
   FILESYSTEM_TYPE,
   FILESYSTEM_ACTION,
   type SizeMode,
-  isReusingPartition,
 } from "./fields";
 import {
   deviceSize,
@@ -104,7 +103,6 @@ function getSizeModeOptions() {
  */
 function useSolvedSizes(
   mountPoint: string,
-  name: string,
   filesystem: string,
 ): { min: string; max: string } | null {
   const { collection, index } = useParams();
@@ -120,7 +118,7 @@ function useSolvedSizes(
   // The sparse model is calculated only if the conditions are met.
   const sparseModel = useMemo(() => {
     // Don't calculate solved sizes for reused partitions or empty mount points
-    if (!mountPoint || isReusingPartition(name) || !device || !location) {
+    if (!mountPoint || !device || !location) {
       return undefined;
     }
 
@@ -155,7 +153,7 @@ function useSolvedSizes(
     } catch {
       return undefined;
     }
-  }, [mountPoint, name, filesystem, device, location, collection, index, model]);
+  }, [mountPoint, filesystem, device, location, collection, index, model]);
 
   // Always call the hook (Rules of Hooks), but pass undefined when we shouldn't calculate
   const solvedModel = useSolvedConfigModel(sparseModel);
@@ -179,7 +177,6 @@ function useSolvedSizes(
 type SizeFieldsContentProps = {
   committedMountPoint: string;
   filesystem: string;
-  name: string;
   sizeMode: SizeMode;
 };
 
@@ -280,10 +277,9 @@ const SizeFieldsContent = withForm({
   props: {
     committedMountPoint: "",
     filesystem: "",
-    name: "",
     sizeMode: SIZE_MODE.AUTO,
   } as SizeFieldsContentProps,
-  render: function Render({ form, committedMountPoint, filesystem, name, sizeMode }) {
+  render: function Render({ form, committedMountPoint, filesystem, sizeMode }) {
     // Use committedMountPoint (not live mountPoint) to avoid reacting to incomplete input.
     // This prevents showing misleading size hints while user types "/ho..." and avoids
     // expensive useVolumeTemplate recalculations on every keystroke.
@@ -292,7 +288,7 @@ const SizeFieldsContent = withForm({
     const effectiveFilesystem = filesystem === FILESYSTEM_TYPE.AUTO ? volume?.fsType : filesystem;
 
     // Calculate solved sizes - only recalculates when committedMountPoint or filesystem change
-    const solvedSizes = useSolvedSizes(committedMountPoint, name, filesystem);
+    const solvedSizes = useSolvedSizes(committedMountPoint, filesystem);
 
     const automaticSizeNote = useAutomaticSizeNote(
       volume,
@@ -382,10 +378,9 @@ const SizeFields = withForm({
           selector={(s) => ({
             committedMountPoint: s.values.committedMountPoint,
             filesystem: s.values.filesystem,
-            name: s.values.name,
           })}
         >
-          {({ committedMountPoint, filesystem, name }) => (
+          {({ committedMountPoint, filesystem }) => (
             <form.AppField name="sizeMode">
               {(field) => (
                 <field.DropdownField label={_("Size")} options={getSizeModeOptions()}>
@@ -398,7 +393,6 @@ const SizeFields = withForm({
                           form={form}
                           committedMountPoint={committedMountPoint}
                           filesystem={filesystem}
-                          name={name}
                           sizeMode={value}
                         />
                       </FieldNestedContent>
