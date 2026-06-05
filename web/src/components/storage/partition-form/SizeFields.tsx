@@ -28,13 +28,7 @@ import Text from "~/components/core/Text";
 import FieldNestedContent from "~/components/form/FieldNestedContent";
 import { withForm } from "~/hooks/form";
 import { useVolumeTemplate } from "~/hooks/model/system/storage";
-import {
-  defaultOptions,
-  SIZE_MODE,
-  FILESYSTEM_TYPE,
-  FILESYSTEM_ACTION,
-  type SizeMode,
-} from "./fields";
+import { defaultOptions, SIZE_MODE, FILESYSTEM_TYPE, type SizeMode } from "./fields";
 import {
   deviceSize,
   filesystemLabel,
@@ -115,15 +109,9 @@ function useSolvedSizes(
 
   // Build a sparse model (a model in which the size of the relevant partition is omitted) to be
   // used by useSolvedConfigModel.
-  // The sparse model is calculated only if the conditions are met.
   const sparseModel = useMemo(() => {
-    // Don't calculate solved sizes for reused partitions or empty mount points
+    // Just to make sure, no call without mountPoint is expected
     if (!mountPoint || !device || !location) {
-      return undefined;
-    }
-
-    // Skip if filesystem is not selected or is reuse action
-    if (filesystem === "" || filesystem === FILESYSTEM_ACTION.REUSE) {
       return undefined;
     }
 
