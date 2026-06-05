@@ -43,7 +43,6 @@ import type { ConfigModel } from "~/model/storage/config-model";
 
 type FilesystemFieldsProps = {
   device: System.Device;
-  onFilesystemChange?: () => void;
 };
 
 type FilesystemFieldsContentProps = {
@@ -283,38 +282,26 @@ const FilesystemFields = withForm({
   ...defaultOptions,
   props: {
     device: {} as System.Device,
-    onFilesystemChange: undefined,
   } as FilesystemFieldsProps,
-  render: function Render({ form, device, onFilesystemChange }) {
+  render: function Render({ form, device }) {
     return (
-      <form.AppField
-        name="filesystem"
-        listeners={{
-          onChange: () => {
-            onFilesystemChange?.();
-          },
-        }}
+      <form.Subscribe
+        selector={(s) => ({
+          name: s.values.name,
+          committedMountPoint: s.values.committedMountPoint,
+          filesystem: s.values.filesystem,
+        })}
       >
-        {() => (
-          <form.Subscribe
-            selector={(s) => ({
-              name: s.values.name,
-              committedMountPoint: s.values.committedMountPoint,
-              filesystem: s.values.filesystem,
-            })}
-          >
-            {({ name, committedMountPoint, filesystem }) => (
-              <FilesystemFieldsContent
-                form={form}
-                device={device}
-                name={name}
-                committedMountPoint={committedMountPoint}
-                filesystem={filesystem}
-              />
-            )}
-          </form.Subscribe>
+        {({ name, committedMountPoint, filesystem }) => (
+          <FilesystemFieldsContent
+            form={form}
+            device={device}
+            name={name}
+            committedMountPoint={committedMountPoint}
+            filesystem={filesystem}
+          />
         )}
-      </form.AppField>
+      </form.Subscribe>
     );
   },
 });

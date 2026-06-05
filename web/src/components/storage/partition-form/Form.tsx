@@ -37,7 +37,6 @@ import {
   usePartitionable,
   useAddPartition,
   useEditPartition,
-  useSolvedConfigModel,
 } from "~/hooks/model/storage/config-model";
 import configModel from "~/model/storage/config-model";
 import { STORAGE } from "~/routes/paths";
@@ -58,7 +57,6 @@ import {
   SIZE_MODE,
   SizeMode,
 } from "./fields";
-import { calculateSolvedSizes } from "./solved-sizes";
 
 import type { ConfigModel as ConfigModelType, Partitionable } from "~/model/storage/config-model";
 import type { Storage as System } from "~/model/system";
@@ -353,10 +351,6 @@ function PartitionFormContent({
   const addPartition = useAddPartition();
   const editPartition = useEditPartition();
 
-  // Hooks for calculating solved sizes (not frozen - need fresh data)
-  const deviceModel = useDeviceModelFromParams();
-  const solveConfig = useSolvedConfigModel;
-
   // Get used mount points for validation (excluding current when editing).
   // Memoized to maintain stable array reference for form validators.
   const usedMountPoints = useMemo(() => {
@@ -414,38 +408,6 @@ function PartitionFormContent({
     },
   });
 
-  /**
-   * Updates the solved size fields based on current form values.
-   * Called from listeners when mount point or filesystem changes.
-   */
-  const updateSolvedSizes = React.useCallback(() => {
-    const values = form.state.values;
-
-    // Only calculate when size mode is automatic
-    if (values.sizeMode !== SIZE_MODE.AUTO) {
-      return;
-    }
-
-    const solvedSizes = calculateSolvedSizes({
-      committedMountPoint: values.committedMountPoint,
-      name: values.name,
-      filesystem: values.filesystem,
-      device: deviceModel,
-      model: config,
-      collection,
-      index,
-      solveConfig,
-    });
-
-    if (solvedSizes) {
-      form.setFieldValue("solvedMinSize", solvedSizes.min, { dontUpdateMeta: true });
-      form.setFieldValue("solvedMaxSize", solvedSizes.max, { dontUpdateMeta: true });
-    } else {
-      form.setFieldValue("solvedMinSize", "", { dontUpdateMeta: true });
-      form.setFieldValue("solvedMaxSize", "", { dontUpdateMeta: true });
-    }
-  }, [form, deviceModel, config, collection, index, solveConfig]);
-
   // Unreachable: PartitionForm only renders this component when systemDevice
   // is defined. The guard keeps TypeScript satisfied without a cast.
   if (!systemDevice) return null;
@@ -488,13 +450,11 @@ function PartitionFormContent({
             // Initialize committedMountPoint when form loads (for editing existing partitions).
             onMount: ({ value }) => {
               form.setFieldValue("committedMountPoint", value, { dontUpdateMeta: true });
-              updateSolvedSizes();
             },
             // Update committedMountPoint when user finishes typing.
             // Deferred to avoid showing incomplete/misleading information while typing.
             onBlur: ({ value }) => {
               form.setFieldValue("committedMountPoint", value, { dontUpdateMeta: true });
-              updateSolvedSizes();
             },
           }}
         >
@@ -508,7 +468,6 @@ function PartitionFormContent({
                 // (click or Enter key). Safe to show filesystem options and size hints
                 // immediately since the value is complete and intentional.
                 form.setFieldValue("committedMountPoint", value, { dontUpdateMeta: true });
-                updateSolvedSizes();
               }}
             />
           )}
@@ -522,7 +481,7 @@ function PartitionFormContent({
         />
 
         {/* Filesystem */}
-        <FilesystemFields form={form} device={systemDevice} onFilesystemChange={updateSolvedSizes} />
+        <FilesystemFields form={form} device={systemDevice} />
 
         {/* Filesystem additional settings (when checkbox is checked) */}
         <form.Subscribe
