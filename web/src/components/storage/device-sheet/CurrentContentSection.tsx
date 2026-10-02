@@ -37,7 +37,7 @@ import { useSpacePolicy } from "~/components/storage/shared/space-policy";
 import PartitionSpaceControl from "~/components/storage/device-sheet/PartitionSpaceControl";
 import { outcomeOf } from "~/components/storage/shared/consequences";
 import { useDevicesManager } from "~/components/storage/shared/use-devices-manager";
-import { baseName, deviceSize, formattedPath } from "~/components/storage/utils";
+import { baseName, deviceSize } from "~/components/storage/utils";
 import { _, TranslatedString } from "~/i18n";
 import type DevicesManager from "~/model/storage/devices-manager";
 import type { Outcome } from "~/components/storage/shared/consequences";
@@ -152,50 +152,44 @@ type Report = { text: TranslatedString; kind: "destroys" | "shrinks" | "keeps" }
  * against what they meant.
  *
  * In the future tense, because nothing has happened yet, and the column is the
- * last place to suggest otherwise. What it is kept or emptied for is named
- * where the configuration says, since "to be formatted" alone does not say for
- * what.
+ * last place to suggest otherwise.
+ *
+ * What a partition is taken over for is not said here. It is a mount point,
+ * which is a value rather than news, and it has a column of its own where a
+ * reader can compare one row's against the next by looking down. What it loses
+ * on the way is not said here either: the content column shows the file system
+ * it had struck through beside the one it gets, which is the same fact against
+ * the thing it happens to.
+ *
+ * So a partition the new system takes over reads as kept, which is what becomes
+ * of the partition itself whether or not what was on it survives. A shrink is
+ * the one thing still worth saying over the top of that: nothing else on the
+ * row says the partition is not the one it was.
  */
-function reportFor(outcome: Outcome, reusedAs?: string): Report {
+function reportFor(outcome: Outcome, isReused: boolean): Report {
+  if (isReused && outcome !== "shrunk") {
+    // TRANSLATORS: what the installation will do to a partition already on the
+    // disk: leave it where it is.
+    return { kind: "keeps", text: _("Kept") };
+  }
+
   switch (outcome) {
     case "deleted":
       // TRANSLATORS: what the installation will do to a partition already on
       // the disk: remove it and everything on it.
       return { kind: "destroys", text: _("To be deleted") };
     case "formatted":
-      return {
-        kind: "destroys",
-        text: reusedAs
-          ? sprintf(
-              // TRANSLATORS: what the installation will do to a partition
-              // already on the disk: empty it and mount it for the new system.
-              // %s is where, such as "/home".
-              _("To be formatted as %s"),
-              reusedAs,
-            )
-          : // TRANSLATORS: what the installation will do to a partition already
-            // on the disk: empty it.
-            _("To be formatted"),
-      };
+      // TRANSLATORS: what the installation will do to a partition already on
+      // the disk: empty it.
+      return { kind: "destroys", text: _("To be formatted") };
     case "shrunk":
       // TRANSLATORS: what the installation will do to a partition already on
       // the disk: make it smaller, keeping what is on it.
       return { kind: "shrinks", text: _("To be shrunk") };
     case "kept":
-      return {
-        kind: "keeps",
-        text: reusedAs
-          ? sprintf(
-              // TRANSLATORS: what the installation will do to a partition already
-              // on the disk: keep it and its data, and mount it for the new
-              // system. %s is where, such as "/home".
-              _("To be reused as %s"),
-              reusedAs,
-            )
-          : // TRANSLATORS: what the installation will do to a partition already
-            // on the disk: nothing.
-            _("Kept"),
-      };
+      // TRANSLATORS: what the installation will do to a partition already on
+      // the disk: nothing.
+      return { kind: "keeps", text: _("Kept") };
   }
 }
 
@@ -222,10 +216,20 @@ function PartitionRow({
 }) {
   const outcome = outcomeOf(manager, part);
   const reusedAs = entries.find((e) => e.name === part.name)?.mountPath;
-  const report = reportFor(outcome, reusedAs && formattedPath(reusedAs));
+  const report = reportFor(outcome, Boolean(reusedAs));
   const systems = part.block?.systems || [];
   const size = part.block?.size;
-  const shrunkTo = outcome === "shrunk" ? manager.stagingDevice(part.sid)?.block?.size : undefined;
+  const staged = manager.stagingDevice(part.sid);
+  const shrunkTo = outcome === "shrunk" ? staged?.block?.size : undefined;
+  /* What the partition is left holding, where that is not what it holds today.
+     Read from the plan rather than from the request, since the request can
+     leave the file system to the installer and the plan cannot. */
+  const newFilesystem = outcome === "formatted" ? staged?.filesystem?.type : undefined;
+  const currentContent =
+    part.filesystem?.type ||
+    part.description ||
+    // TRANSLATORS: said of a partition whose content is not recognized.
+    _("unrecognized");
 
   return (
     <Tr>
@@ -239,17 +243,39 @@ function PartitionRow({
           </>
         )}
       </Th>
-      {/* What is on it. What becomes of it is two columns on, so it is not said
-          here too. A system the machine reports sits beside the file system as
-          a mark: naming Windows is what makes a deletion mean something. */}
+      {/* Where the new system takes it over, and nothing where it does not. A
+          mount point is what the partition is kept for, and a column of them
+          is read down the table rather than out of a sentence per row, which
+          is why it is not folded into what becomes of the partition.
+
+          The path bare rather than quoted: quotation marks hold a path apart
+          from the words around it, and a column of paths has no words around
+          it to be held apart from. */}
+      <Td>{reusedAs}</Td>
+      {/* What is on it. What becomes of the partition is two columns on, so it
+          is not said here too. A system the machine reports sits beside the
+          file system as a mark: naming Windows is what makes a deletion mean
+          something.
+
+          Where the installation empties it, what it holds today is struck
+          through beside what it is given, so the loss reads against the thing
+          lost rather than as a verb in another column. */}
       <Td>
         <Flex gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsCenter" }}>
           <FlexItem>
-            {part.filesystem?.type ||
-              part.description ||
-              // TRANSLATORS: said of a partition whose content is not recognized.
-              _("unrecognized")}
+            {newFilesystem ? (
+              /* Struck through and subdued rather than colored: the rule
+                 through it already says it goes, and a word in the page's
+                 danger color beside the one replacing it would make the loss
+                 louder than the thing the reader asked for. */
+              <s>
+                <Text textStyle="textColorSubtle">{currentContent}</Text>
+              </s>
+            ) : (
+              currentContent
+            )}
           </FlexItem>
+          {newFilesystem && <FlexItem>{newFilesystem}</FlexItem>}
           {systems.map((system) => (
             <FlexItem key={system}>
               <Label isCompact>{system}</Label>
@@ -360,6 +386,9 @@ export default function CurrentContentSection({
           <Thead>
             <Tr>
               <Th modifier="nowrap">{_("Partition")}</Th>
+              {/* TRANSLATORS: names the column saying where the new system
+                  mounts a partition it takes over. */}
+              <Th modifier="nowrap">{_("Mount point")}</Th>
               <Th modifier="nowrap">{_("Content")}</Th>
               <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
                 {_("Size")}
@@ -388,6 +417,7 @@ export default function CurrentContentSection({
                       {_("Free space")}
                     </Text>
                   </Th>
+                  <Td />
                   <Td />
                   <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
                   <Td />

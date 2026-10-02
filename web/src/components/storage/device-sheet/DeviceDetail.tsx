@@ -82,13 +82,6 @@ export default function DeviceDetail({ entry, subject }: DeviceDetailProps): Rea
 
   return (
     <Stack hasGutter>
-      <StackItem>
-        <TabNote lead={plannedLead()} />
-        <BootStatement entry={entry} />
-        <UsedByStatement entry={entry} />
-        {entry.isVolumeGroup && <PlannedContentSection entry={entry} subject={subject} />}
-        {!entry.isVolumeGroup && <PartitionsStatement entry={entry} subject={subject} />}
-      </StackItem>
       {/* Only where the machine has something on the entry today. */}
       {hasCurrent && (
         <>
@@ -109,6 +102,13 @@ export default function DeviceDetail({ entry, subject }: DeviceDetailProps): Rea
           </StackItem>
         </>
       )}
+      <StackItem>
+        <TabNote lead={plannedLead()} />
+        <BootStatement entry={entry} />
+        <UsedByStatement entry={entry} />
+        {entry.isVolumeGroup && <PlannedContentSection entry={entry} subject={subject} />}
+        {!entry.isVolumeGroup && <PartitionsStatement entry={entry} subject={subject} />}
+      </StackItem>
     </Stack>
   );
 }
