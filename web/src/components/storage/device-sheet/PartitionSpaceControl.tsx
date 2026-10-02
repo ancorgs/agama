@@ -41,7 +41,36 @@ type Decision = "keep" | "resizeIfNeeded" | "delete";
  */
 const DECISIONS: Decision[] = ["keep", "resizeIfNeeded", "delete"];
 
-function label(decision: Decision): TranslatedString {
+/**
+ * What a device's own rule allows each of its partitions, where the rule is one
+ * for the whole device.
+ *
+ * The three answers are the same three a partition can carry on its own, said
+ * once for every part rather than part by part. Custom has no answer here: it
+ * is the answer that says there is none for the device, and each part gives its
+ * own.
+ */
+function decisionUnder(policy: ConfigModel.SpacePolicy): Decision | undefined {
+  switch (policy) {
+    case "delete":
+      return "delete";
+    case "resize":
+      return "resizeIfNeeded";
+    case "keep":
+      return "keep";
+    case "custom":
+      return undefined;
+  }
+}
+
+/**
+ * The word for one decision, wherever it is read.
+ *
+ * The same word whether the reader set it on this partition or on the device
+ * above it: a column mixing "Delete" with "To be deleted" would have a reader
+ * work out that the two are one thing.
+ */
+function decisionLabel(decision: Decision): TranslatedString {
   switch (decision) {
     case "keep":
       // TRANSLATORS: what the installer may do to one partition: nothing.
@@ -94,9 +123,12 @@ export type PartitionSpaceControlProps = {
  * that is decided one at a time.
  *
  * Offered only under the fourth space answer, so an entry following one rule
- * carries one control rather than one per part. It is a permission rather
- * than an instruction: the column it sits in says what the installer actually
- * does with it.
+ * carries one control rather than one per part. Where it is not offered, the
+ * same column reads the rule's own word for the same decision, so the column
+ * says one kind of thing however the decision was arrived at.
+ *
+ * It is a permission rather than an instruction: "Shrink if needed" is the
+ * whole truth about a partition the installer did not have to shrink.
  *
  * Every partition's decision is written back with this one, because the
  * configuration clears them all before applying the list it is given. Sending
@@ -153,10 +185,10 @@ export default function PartitionSpaceControl({
             // current decision, such as "Keep".
             _("Changes allowed for %1$s: %2$s"),
             name,
-            label(current),
+            decisionLabel(current),
           )}
         >
-          {label(current)}
+          {decisionLabel(current)}
         </MenuToggle>
       )}
     >
@@ -178,7 +210,7 @@ export default function PartitionSpaceControl({
               }
               onClick={refused ? undefined : () => choose(decision)}
             >
-              {label(decision)}
+              {decisionLabel(decision)}
             </DropdownItem>
           );
         })}
@@ -186,3 +218,6 @@ export default function PartitionSpaceControl({
     </Dropdown>
   );
 }
+
+export { decisionLabel, decisionUnder };
+export type { Decision };
