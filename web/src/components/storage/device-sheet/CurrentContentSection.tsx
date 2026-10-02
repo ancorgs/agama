@@ -25,6 +25,7 @@ import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { Flex, FlexItem, Label, Stack, StackItem } from "@patternfly/react-core";
 import alignmentStyles from "@patternfly/react-styles/css/utilities/Alignment/alignment";
 import { sprintf } from "sprintf-js";
+import Interpolate from "~/components/core/Interpolate";
 import Text from "~/components/core/Text";
 import Icon from "~/components/layout/Icon";
 import SpaceDecision from "~/components/storage/storage-page/SpaceDecision";
@@ -38,7 +39,7 @@ import PartitionSpaceControl from "~/components/storage/device-sheet/PartitionSp
 import { outcomeOf } from "~/components/storage/shared/consequences";
 import { useDevicesManager } from "~/components/storage/shared/use-devices-manager";
 import { baseName, deviceSize } from "~/components/storage/utils";
-import { _, TranslatedString } from "~/i18n";
+import { _ } from "~/i18n";
 import type DevicesManager from "~/model/storage/devices-manager";
 import type { Outcome } from "~/components/storage/shared/consequences";
 import type { ConfigModel, Partitionable } from "~/model/storage/config-model";
@@ -144,8 +145,19 @@ function PartitionMenu({
   );
 }
 
-/** How a planned action reads, and whether it loses anything. */
-type Report = { text: TranslatedString; kind: "destroys" | "shrinks" | "keeps" };
+/* The one report that costs the reader something, colored rather than marked.
+   The words say what happens, and a mark beside them in a column of short
+   phrases says it a second time while taking the width the phrases need. The
+   color is the entries table's, so the same news reads the same in both. */
+const DESTROYS_CLASS = "agm-entries-table__cost--destroys";
+
+/**
+ * How a planned action reads, and whether it loses anything.
+ *
+ * The words rather than a string: one report says two things at once, and the
+ * half that costs the reader carries the color on its own.
+ */
+type Report = { text: React.ReactNode; kind: "destroys" | "shrinks" | "keeps" };
 
 /**
  * What the installer will do to one partition, in words a reader can check
@@ -162,11 +174,35 @@ type Report = { text: TranslatedString; kind: "destroys" | "shrinks" | "keeps" }
  * the thing it happens to.
  *
  * So a partition the new system takes over reads as kept, which is what becomes
- * of the partition itself whether or not what was on it survives. A shrink is
- * the one thing still worth saying over the top of that: nothing else on the
+ * of the partition itself whether or not what was on it survives. Whether it
+ * does is said in the same breath and in the page's danger color, because kept
+ * on its own would have the reader believe their data is safe. A shrink is the
+ * one thing still worth saying over the top of all that: nothing else on the
  * row says the partition is not the one it was.
  */
 function reportFor(outcome: Outcome, isReused: boolean): Report {
+  if (isReused && outcome === "formatted") {
+    return {
+      /* The row as a whole keeps its partition, so the color is on the word
+         that does not, rather than on the line. */
+      kind: "keeps",
+      text: (
+        /* One string with the costly word marked inside it, rather than two
+           joined here: a translator needs the whole phrase to put the
+           parenthesis where their language puts it, and some will not keep the
+           word in the brackets a single word. */
+        <Interpolate
+          // TRANSLATORS: what the installation will do to a partition already
+          // on the disk: leave it where it is, and empty it for the new system.
+          // The bracketed word is the one that reads as a loss.
+          sentence={_("Kept ([formatted])")}
+        >
+          {(text) => <span className={DESTROYS_CLASS}>{text}</span>}
+        </Interpolate>
+      ),
+    };
+  }
+
   if (isReused && outcome !== "shrunk") {
     // TRANSLATORS: what the installation will do to a partition already on the
     // disk: leave it where it is.
@@ -192,12 +228,6 @@ function reportFor(outcome: Outcome, isReused: boolean): Report {
       return { kind: "keeps", text: _("Kept") };
   }
 }
-
-/* The one report that costs the reader something, colored rather than marked.
-   The words say what happens, and a mark beside them in a column of short
-   phrases says it a second time while taking the width the phrases need. The
-   color is the entries table's, so the same news reads the same in both. */
-const DESTROYS_CLASS = "agm-entries-table__cost--destroys";
 
 function PartitionRow({
   part,
