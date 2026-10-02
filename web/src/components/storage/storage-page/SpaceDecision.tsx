@@ -136,9 +136,10 @@ export default function SpaceDecision({ collection, index, isAssertive }: SpaceD
 
     /* Custom is answered like the others and then followed up: it says the
        decision is made part by part, so the reader is taken to where those are
-       made. The control is read from that view as well as from the page, where
-       following up means staying put. */
-    if (policy === "custom") openSheet({ collection, index }, "current");
+       made. That is the panel for the device, which shows what is on it today
+       along with everything else. The control is read from there as well as
+       from the page, where following up means staying put. */
+    if (policy === "custom") openSheet({ collection, index });
   };
 
   const reused = configModel.partitionable.isReusingPartitions(
