@@ -306,11 +306,12 @@ function PartitionRow({
             )}
           </FlexItem>
           {newFilesystem && <FlexItem>{newFilesystem}</FlexItem>}
-          {systems.map((system) => (
-            <FlexItem key={system}>
-              <Label isCompact>{system}</Label>
-            </FlexItem>
-          ))}
+          {!newFilesystem &&
+            systems.map((system) => (
+              <FlexItem key={system}>
+                <Label isCompact>{system}</Label>
+              </FlexItem>
+            ))}
         </Flex>
       </Td>
       {/* The size it ends at where a shrink is planned, with the size it has
@@ -418,7 +419,7 @@ export default function CurrentContentSection({
               <Th modifier="nowrap">{_("Partition")}</Th>
               {/* TRANSLATORS: names the column saying where the new system
                   mounts a partition it takes over. */}
-              <Th modifier="nowrap">{_("Mount point")}</Th>
+              <Th modifier="nowrap">{_("Path")}</Th>
               <Th modifier="nowrap">{_("Content")}</Th>
               <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
                 {_("Size")}

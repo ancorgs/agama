@@ -190,7 +190,7 @@ export default function PlannedContentSection({
               row whose whole job is to be read. */}
           <Thead>
             <Tr>
-              <Th modifier="nowrap">{_("Mount point")}</Th>
+              <Th modifier="nowrap">{_("Path")}</Th>
               <Th modifier="nowrap">{_("File system")}</Th>
               <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
                 {_("Size")}
