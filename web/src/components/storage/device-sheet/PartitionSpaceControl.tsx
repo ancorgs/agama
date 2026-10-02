@@ -219,5 +219,5 @@ export default function PartitionSpaceControl({
   );
 }
 
-export { decisionLabel, decisionUnder };
+export { decisionLabel, decisionOf, decisionUnder };
 export type { Decision };

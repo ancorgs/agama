@@ -37,6 +37,7 @@ import { useDeletePartition } from "~/hooks/model/storage/config-model";
 import { useSpacePolicy } from "~/components/storage/shared/space-policy";
 import PartitionSpaceControl, {
   decisionLabel,
+  decisionOf,
   decisionUnder,
 } from "~/components/storage/device-sheet/PartitionSpaceControl";
 import { outcomeOf } from "~/components/storage/shared/consequences";
@@ -44,6 +45,7 @@ import { useDevicesManager } from "~/components/storage/shared/use-devices-manag
 import { baseName, deviceSize } from "~/components/storage/utils";
 import { _ } from "~/i18n";
 import type DevicesManager from "~/model/storage/devices-manager";
+import type { Decision } from "~/components/storage/device-sheet/PartitionSpaceControl";
 import type { Outcome } from "~/components/storage/shared/consequences";
 import type { ConfigModel, Partitionable } from "~/model/storage/config-model";
 import type { Entry } from "~/components/storage/device-sheet/entry";
@@ -223,16 +225,34 @@ function reportFor(outcome: Outcome): Report {
   }
 }
 
+/**
+ * What is allowed to happen to one thing already on the device.
+ *
+ * The device's rule where it has one to give, and the thing's own where the
+ * fourth answer leaves it to the parts. Nothing at all where the new system
+ * mounts it: it is spoken for, and no space decision reaches it.
+ */
+function decisionFor(
+  rule: Decision | undefined,
+  entry?: ConfigModel.Partition | ConfigModel.LogicalVolume,
+): Decision | undefined {
+  if (entry?.mountPath) return undefined;
+  return rule || decisionOf(entry);
+}
+
 function PartitionRow({
   part,
   manager,
   entries,
+  decision,
   decides,
   menu,
 }: {
   part: System.Device;
   manager: DevicesManager;
   entries: (ConfigModel.Partition | ConfigModel.LogicalVolume)[];
+  /** What is allowed to happen here, however it came to be allowed. */
+  decision?: Decision;
   /**
    * What is allowed to happen to this partition: the word the device's rule
    * gives it, or the control that sets it where the device decides one part at
@@ -260,16 +280,26 @@ function PartitionRow({
     // TRANSLATORS: said of a partition whose content is not recognized.
     _("unrecognized");
 
+  /* A rule through what the row describes, where the reader has allowed it to
+     go. The name, what is on it and how big it is are facts about a partition
+     that will not be there afterwards, and the word in the action column is one
+     word at the far end of the row to carry back across the other three. */
+  const struck = (content: React.ReactNode) => (decision === "delete" ? <s>{content}</s> : content);
+
   return (
     <Tr>
       <Th scope="row">
-        <Text isBold>{baseName(part.name)}</Text>
-        {part.block?.encrypted && (
+        {struck(
           <>
-            {" "}
-            {/* TRANSLATORS: marks a partition whose content is encrypted. */}
-            <Icon name="lock" size="xs" aria-label={_("encrypted")} />
-          </>
+            <Text isBold>{baseName(part.name)}</Text>
+            {part.block?.encrypted && (
+              <>
+                {" "}
+                {/* TRANSLATORS: marks a partition whose content is encrypted. */}
+                <Icon name="lock" size="xs" aria-label={_("encrypted")} />
+              </>
+            )}
+          </>,
         )}
       </Th>
       {/* Where the new system takes it over, and nothing where it does not. A
@@ -301,10 +331,15 @@ function PartitionRow({
                 <Text textStyle="textColorSubtle">{currentContent}</Text>
               </s>
             ) : (
-              currentContent
+              struck(currentContent)
             )}
           </FlexItem>
           {newFilesystem && <FlexItem>{newFilesystem}</FlexItem>}
+          {/* The system left standing on a row being deleted. It is a mark
+              rather than a word in the sentence, so a rule through it would be
+              a rule through a label; and it is the one thing on the row that
+              makes the deletion mean something, which is not helped by being
+              crossed out. */}
           {!newFilesystem &&
             systems.map((system) => (
               <FlexItem key={system}>
@@ -333,7 +368,7 @@ function PartitionRow({
             )}
           </>
         ) : (
-          size !== undefined && deviceSize(size)
+          size !== undefined && struck(deviceSize(size))
         )}
       </Td>
       <Td>
@@ -377,6 +412,11 @@ export type CurrentContentSectionProps = {
  * permission, so "Shrink if needed" is the whole truth about a partition the
  * installer did not have to shrink; where it did, the size column says so
  * under the size it ends at.
+ *
+ * A row allowed to go is struck through where it describes itself, so the loss
+ * is read off the row rather than off one word at the end of it. The decision
+ * stays plain: it is the thing the reader chose, and the one part of the row
+ * still true afterwards.
  *
  * Shown only where there is something to show, which whoever offers the view
  * settles with {@link hasCurrentContent}. The view never has to say that it has
@@ -448,28 +488,40 @@ export default function CurrentContentSection({
             </Tr>
           </Thead>
           <Tbody>
-            {rows.map((row, at) =>
-              isFreeSpace(row) ? (
-                <Tr key={`free-${at}`}>
-                  <Th scope="row">
-                    <Text textStyle="textColorSubtle">
-                      {/* TRANSLATORS: a row for room on a device that no
+            {rows.map((row, at) => {
+              if (isFreeSpace(row)) {
+                return (
+                  <Tr key={`free-${at}`}>
+                    <Th scope="row">
+                      <Text textStyle="textColorSubtle">
+                        {/* TRANSLATORS: a row for room on a device that no
                             partition takes. */}
-                      {_("Free space")}
-                    </Text>
-                  </Th>
-                  <Td />
-                  <Td />
-                  <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
-                  <Td />
-                  <Td />
-                </Tr>
-              ) : (
+                        {_("Free space")}
+                      </Text>
+                    </Th>
+                    <Td />
+                    <Td />
+                    <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
+                    <Td />
+                    <Td />
+                  </Tr>
+                );
+              }
+
+              /* Worked out once and given to the row, which both says it in the
+                 action column and reads the rest of itself against it. */
+              const decision = decisionFor(
+                rule,
+                entries.find((e) => e.name === row.name),
+              );
+
+              return (
                 <PartitionRow
                   key={row.sid}
                   part={row}
                   manager={manager}
                   entries={entries}
+                  decision={decision}
                   menu={
                     subject.collection !== "volumeGroups" && (
                       <PartitionMenu
@@ -481,11 +533,9 @@ export default function CurrentContentSection({
                     )
                   }
                   decides={
-                    /* One the new system mounts is spoken for, so no space
-                         decision reaches it, by the device's rule or its own. */
-                    !entries.find((e) => e.name === row.name)?.mountPath &&
+                    decision &&
                     (rule ? (
-                      decisionLabel(rule)
+                      decisionLabel(decision)
                     ) : (
                       <PartitionSpaceControl
                         partition={row}
@@ -501,8 +551,8 @@ export default function CurrentContentSection({
                     ))
                   }
                 />
-              ),
-            )}
+              );
+            })}
           </Tbody>
         </Table>
       </StackItem>
