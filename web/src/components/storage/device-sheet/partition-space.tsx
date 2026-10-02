@@ -21,9 +21,7 @@
  */
 
 import React from "react";
-import { Dropdown, DropdownItem, DropdownList, MenuToggle } from "@patternfly/react-core";
-import { sprintf } from "sprintf-js";
-import { baseName } from "~/components/storage/utils";
+import { MenuButtonItem } from "~/components/core/MenuButton";
 import { useSetSpacePolicy } from "~/hooks/model/storage/config-model";
 import { _, TranslatedString } from "~/i18n";
 import type { ConfigModel, DeviceCollection } from "~/model/storage/config-model";
@@ -64,23 +62,24 @@ function decisionUnder(policy: ConfigModel.SpacePolicy): Decision | undefined {
 }
 
 /**
- * The word for one decision, wherever it is read.
+ * The word for one decision, as the thing a reader asks for.
  *
- * The same word whether the reader set it on this partition or on the device
- * above it: a column mixing "Delete" with "To be deleted" would have a reader
- * work out that the two are one thing.
+ * An imperative, because this is what the menu offering it needs: a reader
+ * picking "Delete" is telling the installer to. Where the same decision is only
+ * being reported, the row says it as a state of affairs instead.
  */
 function decisionLabel(decision: Decision): TranslatedString {
   switch (decision) {
     case "keep":
-      // TRANSLATORS: what the installer may do to one partition: nothing.
+      // TRANSLATORS: offered on one partition already on a device: do nothing
+      // to it.
       return _("Keep");
     case "resizeIfNeeded":
-      // TRANSLATORS: what the installer may do to one partition: make it
-      // smaller, only if it runs short of room.
+      // TRANSLATORS: offered on one partition already on a device: allow it to
+      // be made smaller, should the installation run short of room.
       return _("Shrink if needed");
     case "delete":
-      // TRANSLATORS: what the installer may do to one partition: remove it.
+      // TRANSLATORS: offered on one partition already on a device: remove it.
       return _("Delete");
   }
 }
@@ -106,8 +105,8 @@ function decisionOf(entry?: ConfigModel.Partition | ConfigModel.LogicalVolume): 
   return "keep";
 }
 
-export type PartitionSpaceControlProps = {
-  /** The partition this decides about, as the machine reports it. */
+export type PartitionSpaceItemsProps = {
+  /** The partition these decide about, as the machine reports it. */
   partition: System.Device;
   /** Every partition the decision governs on this device, in the same terms. */
   governed: System.Device[];
@@ -119,42 +118,43 @@ export type PartitionSpaceControlProps = {
 };
 
 /**
- * What the installer may do to one partition, or to one logical volume, where
- * that is decided one at a time.
+ * What the installer may do to one partition, or to one logical volume, offered
+ * where that is decided one at a time.
  *
- * Offered only under the fourth space answer, so an entry following one rule
- * carries one control rather than one per part. Where it is not offered, the
- * same column reads the rule's own word for the same decision, so the column
- * says one kind of thing however the decision was arrived at.
+ * Menu items rather than a control of their own, in the same menu as everything
+ * else the row can be told to do. A row offering two ways in asks the reader to
+ * learn which of its own things live where; and a control sitting in a column
+ * of its own gives a decision already written in the row's first column a
+ * second place to be read.
+ *
+ * Offered only under the fourth space answer, which is the answer that says the
+ * parts decide. Under the other three the decision belongs to the device, and
+ * is made where the device is.
  *
  * It is a permission rather than an instruction: "Shrink if needed" is the
  * whole truth about a partition the installer did not have to shrink.
  *
- * Every partition's decision is written back with this one, because the
- * configuration clears them all before applying the list it is given. Sending
- * only the partition that changed would quietly undo every other decision on
- * the device.
+ * Every partition's decision is written back with the one being changed,
+ * because the configuration clears them all before applying the list it is
+ * given. Sending only the partition that changed would quietly undo every other
+ * decision on the device.
  *
  * An option that cannot apply stays offered and says why, reachable by keyboard.
  */
-export default function PartitionSpaceControl({
+function usePartitionSpaceItems({
   partition,
   governed,
   entries,
   collection,
   index,
-}: PartitionSpaceControlProps): React.ReactNode {
-  const [isOpen, setIsOpen] = React.useState(false);
+}: PartitionSpaceItemsProps): React.ReactNode[] {
   const setSpacePolicy = useSetSpacePolicy();
 
   const entryFor = (device: System.Device) => entries.find((entry) => entry.name === device.name);
   const current = decisionOf(entryFor(partition));
   const canShrink = partition.block?.shrinking?.supported === true;
-  const name = baseName(partition.name);
 
   const choose = (decision: Decision) => {
-    setIsOpen(false);
-
     const actions = governed
       .map((device) => ({
         deviceName: device.name,
@@ -168,56 +168,28 @@ export default function PartitionSpaceControl({
     setSpacePolicy(collection, index, { type: "custom", actions });
   };
 
-  return (
-    <Dropdown
-      isOpen={isOpen}
-      onOpenChange={setIsOpen}
-      popperProps={{ position: "end" }}
-      toggle={(ref) => (
-        <MenuToggle
-          ref={ref}
-          size="sm"
-          isExpanded={isOpen}
-          onClick={() => setIsOpen((open) => !open)}
-          aria-label={sprintf(
-            // TRANSLATORS: names the control deciding what the installer may do
-            // to one partition. %1$s is its name, such as "vda2"; %2$s is the
-            // current decision, such as "Keep".
-            _("Changes allowed for %1$s: %2$s"),
-            name,
-            decisionLabel(current),
-          )}
-        >
-          {decisionLabel(current)}
-        </MenuToggle>
-      )}
-    >
-      <DropdownList>
-        {DECISIONS.map((decision) => {
-          const refused = decision === "resizeIfNeeded" && !canShrink;
+  return DECISIONS.map((decision) => {
+    const refused = decision === "resizeIfNeeded" && !canShrink;
 
-          return (
-            <DropdownItem
-              key={decision}
-              isSelected={decision === current}
-              isDanger={decision === "delete"}
-              isAriaDisabled={refused}
-              description={
-                refused
-                  ? // TRANSLATORS: why a partition cannot be allowed to shrink.
-                    _("This partition cannot be made smaller.")
-                  : meaning(decision)
-              }
-              onClick={refused ? undefined : () => choose(decision)}
-            >
-              {decisionLabel(decision)}
-            </DropdownItem>
-          );
-        })}
-      </DropdownList>
-    </Dropdown>
-  );
+    return (
+      <MenuButtonItem
+        key={decision}
+        isSelected={decision === current}
+        isDanger={decision === "delete"}
+        isAriaDisabled={refused}
+        description={
+          refused
+            ? // TRANSLATORS: why a partition cannot be allowed to shrink.
+              _("This partition cannot be made smaller.")
+            : meaning(decision)
+        }
+        onClick={refused ? undefined : () => choose(decision)}
+      >
+        {decisionLabel(decision)}
+      </MenuButtonItem>
+    );
+  });
 }
 
-export { decisionLabel, decisionOf, decisionUnder };
+export { decisionLabel, decisionOf, decisionUnder, usePartitionSpaceItems };
 export type { Decision };

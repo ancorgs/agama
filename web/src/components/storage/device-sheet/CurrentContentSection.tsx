@@ -22,10 +22,9 @@
 
 import React from "react";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
-import { Flex, FlexItem, Label, Stack, StackItem } from "@patternfly/react-core";
+import { Divider, Flex, FlexItem, Label, Stack, StackItem } from "@patternfly/react-core";
 import alignmentStyles from "@patternfly/react-styles/css/utilities/Alignment/alignment";
 import { sprintf } from "sprintf-js";
-import Interpolate from "~/components/core/Interpolate";
 import Text from "~/components/core/Text";
 import Icon from "~/components/layout/Icon";
 import SpaceDecision from "~/components/storage/storage-page/SpaceDecision";
@@ -35,19 +34,18 @@ import { STORAGE as PATHS } from "~/routes/paths";
 import { generateEncodedPath } from "~/utils";
 import { useDeletePartition } from "~/hooks/model/storage/config-model";
 import { useSpacePolicy } from "~/components/storage/shared/space-policy";
-import PartitionSpaceControl, {
-  decisionLabel,
+import {
   decisionOf,
   decisionUnder,
-} from "~/components/storage/device-sheet/PartitionSpaceControl";
+  usePartitionSpaceItems,
+} from "~/components/storage/device-sheet/partition-space";
 import { outcomeOf } from "~/components/storage/shared/consequences";
 import { useDevicesManager } from "~/components/storage/shared/use-devices-manager";
-import { baseName, deviceSize } from "~/components/storage/utils";
+import { baseName, deviceSize, formattedPath } from "~/components/storage/utils";
 import { _ } from "~/i18n";
 import type DevicesManager from "~/model/storage/devices-manager";
-import type { Decision } from "~/components/storage/device-sheet/PartitionSpaceControl";
-import type { Outcome } from "~/components/storage/shared/consequences";
-import type { ConfigModel, Partitionable } from "~/model/storage/config-model";
+import type { Decision } from "~/components/storage/device-sheet/partition-space";
+import type { ConfigModel, DeviceCollection, Partitionable } from "~/model/storage/config-model";
 import type { Entry } from "~/components/storage/device-sheet/entry";
 import type { SheetEntry } from "~/components/storage/shared/use-sheet";
 import type { Storage as System } from "~/model/system";
@@ -87,22 +85,38 @@ export function hasCurrentContent(entry: Entry): boolean {
 }
 
 /**
- * What can be done to one partition that is already on the device.
+ * Everything that can be told to one thing already on the device, in one place.
  *
- * Reusing a partition is not a space decision: it is about what the new system
- * mounts, and it stays offered whatever the device's space answer is. That is
- * why it lives in the row's menu rather than in the control beside it.
+ * Two kinds of thing, and the reader has no reason to know they are two. What
+ * the installation may do to a partition is a space decision, answered for the
+ * whole device unless the reader asked to answer it part by part; whether the
+ * new system takes the partition over is not a space decision at all, and stays
+ * offered whatever the space answer is. They used to sit in different columns
+ * for that reason, which left a row with two ways in and the reader to find out
+ * which held what. A rule between them is enough to keep them apart.
+ *
+ * Nothing where there is nothing to offer: a volume group's logical volumes
+ * cannot be reused, and a device following a rule of its own has no per-part
+ * decision to make here.
  */
 function PartitionMenu({
   part,
   reusedAs,
+  decidesHere,
+  governed,
+  entries,
   collection,
   index,
 }: {
   part: System.Device;
   /** Where the new system mounts it already, where it does. */
   reusedAs?: string;
-  collection: "drives" | "mdRaids";
+  /** Whether this row is where its own space decision is made. */
+  decidesHere: boolean;
+  /** Every partition that decision governs, which it is written back with. */
+  governed: System.Device[];
+  entries: (ConfigModel.Partition | ConfigModel.LogicalVolume)[];
+  collection: DeviceCollection;
   index: number;
 }) {
   const deletePartition = useDeletePartition();
@@ -111,35 +125,60 @@ function PartitionMenu({
   // already on a device. %s is its name, such as "vda2".
   const menuLabel = sprintf(_("Actions for %s"), name);
   const at = { collection, index: String(index) };
+  /* Asked for on every row, since a hook cannot be asked for on some of them,
+     and used only where the row is the one deciding. */
+  const spaceItems = usePartitionSpaceItems({
+    partition: part,
+    governed,
+    entries,
+    collection,
+    index,
+  });
 
-  const items = reusedAs
-    ? [
-        <MenuButtonItem
-          key="edit"
-          to={generateEncodedPath(PATHS.editPartition, { ...at, partitionId: reusedAs })}
-          keepQuery
-        >
-          {/* TRANSLATORS: offered on a partition the new system already reuses:
-              change how it is used. */}
-          {_("Edit the reused partition")}
-        </MenuButtonItem>,
-        <MenuButtonItem key="stop" onClick={() => deletePartition(collection, index, reusedAs)}>
-          {/* TRANSLATORS: offered on a partition the new system reuses: stop
-              using it, which leaves it to the device's space decision again. */}
-          {_("Stop reusing")}
-        </MenuButtonItem>,
-      ]
-    : [
-        <MenuButtonItem
-          key="reuse"
-          to={generateEncodedPath(PATHS.reusePartition, { ...at, deviceName: part.name })}
-          keepQuery
-        >
-          {/* TRANSLATORS: offered on a partition already on a device: use it for
-              the new system. The ellipsis says a form follows. */}
-          {_("Reuse for the new system…")}
-        </MenuButtonItem>,
-      ];
+  /* Only off a device whose partitions the new system can take over. A group's
+     logical volumes are not among them. */
+  const reuseItems =
+    collection === "volumeGroups"
+      ? []
+      : reusedAs
+        ? [
+            <MenuButtonItem
+              key="edit"
+              to={generateEncodedPath(PATHS.editPartition, { ...at, partitionId: reusedAs })}
+              keepQuery
+            >
+              {/* TRANSLATORS: offered on a partition the new system already
+                  reuses: change how it is used. */}
+              {_("Edit the reused partition")}
+            </MenuButtonItem>,
+            <MenuButtonItem key="stop" onClick={() => deletePartition(collection, index, reusedAs)}>
+              {/* TRANSLATORS: offered on a partition the new system reuses: stop
+                  using it, which leaves it to the device's space decision again. */}
+              {_("Stop reusing")}
+            </MenuButtonItem>,
+          ]
+        : [
+            <MenuButtonItem
+              key="reuse"
+              to={generateEncodedPath(PATHS.reusePartition, { ...at, deviceName: part.name })}
+              keepQuery
+            >
+              {/* TRANSLATORS: offered on a partition already on a device: use it
+                  for the new system. The ellipsis says a form follows. */}
+              {_("Reuse for the new system…")}
+            </MenuButtonItem>,
+          ];
+
+  /* The space decision first: it is what the row's first column says about
+     itself, so the menu opens on the thing the reader just read. */
+  const decisions = decidesHere ? spaceItems : [];
+  const items = [
+    ...decisions,
+    ...(decisions.length && reuseItems.length ? [<Divider key="rule" component="li" />] : []),
+    ...reuseItems,
+  ];
+
+  if (!items.length) return null;
 
   return (
     <MenuButton
@@ -157,71 +196,66 @@ function PartitionMenu({
 const DESTROYS_CLASS = "agm-entries-table__cost--destroys";
 
 /**
- * How a planned action reads, and whether it loses anything.
+ * What is to become of one thing already on the device, and whether that costs
+ * the reader anything.
  *
- * The words rather than a string: one report says two things at once, and the
- * half that costs the reader carries the color on its own.
+ * The words rather than a string: half the statuses are a loss and carry the
+ * color saying so, and half are not.
  */
-type Report = { text: React.ReactNode; kind: "destroys" | "shrinks" | "keeps" };
+type Status = { text: string; destroys: boolean };
 
 /**
- * What the installer will do to one partition the new system takes over.
+ * What is to become of one thing already on the device, said beside its name.
  *
- * Only these rows carry a report. Every other row carries a decision instead:
- * what the reader has allowed to happen there, which is the thing they came to
- * read and the thing they can change. A partition the new system mounts is
- * spoken for, so no decision reaches it, and what becomes of it is read off the
- * plan rather than chosen.
+ * Two questions answered in one phrase, because a reader looking at a row wants
+ * one answer about it. Where the new system takes the partition over, that is
+ * the answer and no space decision reaches it: it is spoken for, and what it is
+ * taken over for is the useful half of the news, so the phrase carries the
+ * mount point rather than making the reader find it. Where the new system has
+ * no use for it, the answer is what the reader has allowed to happen there.
  *
- * What it is taken over for is not said here. It is a mount point, which is a
- * value rather than news, and it has a column of its own where a reader can
- * compare one row's against the next by looking down. What it loses on the way
- * is not said here either: the content column shows the file system it had
- * struck through beside the one it gets, which is the same fact against the
- * thing it happens to.
+ * Lower case and tucked in after the name: it is the end of a phrase the name
+ * begins, not a heading, and a column of them is read down.
  *
- * So it reads as kept, which is what becomes of the partition itself whether or
- * not what was on it survives. Whether it does is said in the same breath and
- * in the page's danger color, because kept on its own would have the reader
- * believe their data is safe.
+ * Taking a partition over still empties it more often than not, and "mount at"
+ * where the installation means to format would have a reader believe their data
+ * is safe. So the two are different phrases, and the one that loses something
+ * says so and is colored.
  */
-function reportFor(outcome: Outcome): Report {
-  switch (outcome) {
-    case "formatted":
-      return {
-        /* The row as a whole keeps its partition, so the color is on the word
-           that does not, rather than on the line. */
-        kind: "keeps",
-        text: (
-          /* One string with the costly word marked inside it, rather than two
-             joined here: a translator needs the whole phrase to put the
-             parenthesis where their language puts it, and some will not keep
-             the word in the brackets a single word. */
-          <Interpolate
-            // TRANSLATORS: what the installation will do to a partition already
-            // on the disk: leave it where it is, and empty it for the new
-            // system. The bracketed word is the one that reads as a loss.
-            sentence={_("Keep ([formatted])")}
-          >
-            {(text) => <span className={DESTROYS_CLASS}>{text}</span>}
-          </Interpolate>
-        ),
-      };
-    case "shrunk":
-      // TRANSLATORS: what the installation will do to a partition already on
-      // the disk: make it smaller, keeping what is on it.
-      return { kind: "shrinks", text: _("To be shrunk") };
-    /* Not something the plan can hold against a partition the new system
-       mounts, and said plainly rather than as a reassuring "kept" if it ever
-       is. */
-    case "deleted":
-      // TRANSLATORS: what the installation will do to a partition already on
-      // the disk: remove it and everything on it.
-      return { kind: "destroys", text: _("To be deleted") };
-    case "kept":
-      // TRANSLATORS: what the installation will do to a partition already on
-      // the disk: leave it where it is.
-      return { kind: "keeps", text: _("Kept") };
+function statusFor(
+  decision: Decision | undefined,
+  reusedAs: string | undefined,
+  formatted: boolean,
+): Status | undefined {
+  if (reusedAs) {
+    const path = formattedPath(reusedAs);
+
+    return formatted
+      ? // TRANSLATORS: what is to become of a partition already on the disk: it
+        // is emptied and given to the new system. %s is where the new system
+        // mounts it, such as "/home".
+        { text: sprintf(_("format for %s"), path), destroys: true }
+      : // TRANSLATORS: what is to become of a partition already on the disk: the
+        // new system takes it over as it is. %s is where the new system mounts
+        // it, such as "/home".
+        { text: sprintf(_("mount at %s"), path), destroys: false };
+  }
+
+  switch (decision) {
+    case "keep":
+      // TRANSLATORS: what is to become of a partition already on the disk:
+      // nothing.
+      return { text: _("keep"), destroys: false };
+    case "resizeIfNeeded":
+      // TRANSLATORS: what is to become of a partition already on the disk: it
+      // may be made smaller, should the installation run short of room.
+      return { text: _("shrink if needed"), destroys: false };
+    case "delete":
+      // TRANSLATORS: what is to become of a partition already on the disk: it
+      // is removed, and everything on it lost.
+      return { text: _("delete"), destroys: true };
+    default:
+      return undefined;
   }
 }
 
@@ -245,7 +279,6 @@ function PartitionRow({
   manager,
   entries,
   decision,
-  decides,
   menu,
 }: {
   part: System.Device;
@@ -253,19 +286,11 @@ function PartitionRow({
   entries: (ConfigModel.Partition | ConfigModel.LogicalVolume)[];
   /** What is allowed to happen here, however it came to be allowed. */
   decision?: Decision;
-  /**
-   * What is allowed to happen to this partition: the word the device's rule
-   * gives it, or the control that sets it where the device decides one part at
-   * a time. Nothing where no decision reaches the row, and then the row says
-   * what becomes of it instead.
-   */
-  decides?: React.ReactNode;
-  /** The row's menu, where the device is one a partition can be reused from. */
+  /** The row's menu, where there is anything to offer on this row. */
   menu?: React.ReactNode;
 }) {
   const outcome = outcomeOf(manager, part);
   const reusedAs = entries.find((e) => e.name === part.name)?.mountPath;
-  const report = reportFor(outcome);
   const systems = part.block?.systems || [];
   const size = part.block?.size;
   const staged = manager.stagingDevice(part.sid);
@@ -279,11 +304,12 @@ function PartitionRow({
     part.description ||
     // TRANSLATORS: said of a partition whose content is not recognized.
     _("unrecognized");
+  const status = statusFor(decision, reusedAs, newFilesystem !== undefined);
 
   /* A rule through what the row describes, where the reader has allowed it to
      go. The name, what is on it and how big it is are facts about a partition
-     that will not be there afterwards, and the word in the action column is one
-     word at the far end of the row to carry back across the other three. */
+     that will not be there afterwards. Not through the status that says so:
+     crossing out "delete" says the opposite of what it means. */
   const struck = (content: React.ReactNode) =>
     decision === "delete" ? (
       <s>
@@ -295,7 +321,11 @@ function PartitionRow({
 
   return (
     <Tr>
-      <Th scope="row">
+      {/* The name, and then what is to become of it. One phrase rather than a
+          name here and a verdict in a column of its own: the verdict is about
+          this partition and nothing else, so the reader should not have to
+          cross the row to collect it, nor keep the name in mind on the way. */}
+      <Th scope="row" modifier="nowrap">
         {struck(
           <>
             <Text isBold>{baseName(part.name)}</Text>
@@ -308,20 +338,17 @@ function PartitionRow({
             )}
           </>,
         )}
+        {status && (
+          <>
+            {" "}
+            <span className={status.destroys ? DESTROYS_CLASS : undefined}>{status.text}</span>
+          </>
+        )}
       </Th>
-      {/* Where the new system takes it over, and nothing where it does not. A
-          mount point is what the partition is kept for, and a column of them
-          is read down the table rather than out of a sentence per row, which
-          is why it is not folded into what becomes of the partition.
-
-          The path bare rather than quoted: quotation marks hold a path apart
-          from the words around it, and a column of paths has no words around
-          it to be held apart from. */}
-      <Td>{reusedAs}</Td>
-      {/* What is on it. What becomes of the partition is two columns on, so it
-          is not said here too. A system the machine reports sits beside the
-          file system as a mark: naming Windows is what makes a deletion mean
-          something.
+      {/* What is on it. What becomes of the partition is said beside its name,
+          so it is not said here too. A system the machine reports sits beside
+          the file system as a mark: naming Windows is what makes a deletion
+          mean something.
 
           Where the installation empties it, what it holds today is struck
           through beside what it is given, so the loss reads against the thing
@@ -362,18 +389,6 @@ function PartitionRow({
           size !== undefined && struck(deviceSize(size))
         )}
       </Td>
-      <Td>
-        {/* What the reader has allowed here, in the same words whether the
-            device's rule gave it or this row did. A row no decision reaches
-            says what becomes of it instead. */}
-        {decides && <div>{decides}</div>}
-        {!decides &&
-          (report.kind === "destroys" ? (
-            <span className={DESTROYS_CLASS}>{report.text}</span>
-          ) : (
-            report.text
-          ))}
-      </Td>
       <Td isActionCell>{menu}</Td>
     </Tr>
   );
@@ -392,22 +407,27 @@ export type CurrentContentSectionProps = {
  * rather than as a summary. The decision reads above the table it governs,
  * since it is about the rows below it, and then again on every row it reaches,
  * since a rule set once above a list is not read again against each thing in
- * it. The same words in both places: "Delete" on the row is the device's
+ * it. The same decision in both places: "delete" on the row is the device's
  * "Deleting everything" arriving here.
  *
- * Under the fourth space answer the row's word becomes the control that sets
- * it, in the same column and reading the same way, because the decision is the
- * same decision whoever makes it.
+ * Each row says it after the name of the thing it is about, so the three
+ * columns left are three facts about the partition and the name carries the
+ * verdict on it. A column of verdicts across the table had the reader reading
+ * each row twice, once to find which partition and once to find what happens
+ * to it, and left two of its five columns empty on most rows.
  *
- * What the installer makes of the permission is not in that column. It is a
- * permission, so "Shrink if needed" is the whole truth about a partition the
- * installer did not have to shrink; where it did, the size column says so
- * under the size it ends at.
+ * Changing the verdict is in the row's menu, with everything else the row can
+ * be told to do, and only under the fourth space answer, which is the answer
+ * that says the parts decide. Under the other three the decision belongs to
+ * the device and is made above the table.
+ *
+ * It is a permission rather than a plan: "shrink if needed" is the whole truth
+ * about a partition the installer did not have to shrink.
  *
  * A row allowed to go is struck through where it describes itself, so the loss
- * is read off the row rather than off one word at the end of it. The decision
- * stays plain: it is the thing the reader chose, and the one part of the row
- * still true afterwards.
+ * is read off the row rather than off one word in it. Not the verdict, which
+ * is the thing the reader chose and the one part of the row still true
+ * afterwards.
  *
  * Shown only where there is something to show, which whoever offers the view
  * settles with {@link hasCurrentContent}. The view never has to say that it has
@@ -429,6 +449,13 @@ export default function CurrentContentSection({
   const entries = entry.isVolumeGroup
     ? (entry.config as ConfigModel.VolumeGroup).logicalVolumes || []
     : (entry.config as Partitionable.Device).partitions || [];
+  /* Everything one per-partition decision is written back with. One the new
+     system mounts is not among them: it is spoken for, and the configuration
+     holds what it is used for rather than what may be done to it. */
+  const governed = rows.filter(
+    (row): row is System.Device =>
+      !isFreeSpace(row) && !entries.find((e) => e.name === row.name)?.mountPath,
+  );
 
   return (
     <Stack hasGutter>
@@ -462,23 +489,18 @@ export default function CurrentContentSection({
                 whose whole job is to be read. */}
           <Thead>
             <Tr>
+              {/* Named for what the column is a list of, not for everything it
+                  says. What is to become of each one rides after its name
+                  rather than in a column of its own, and a heading naming both
+                  would be a sentence where a name goes. */}
               <Th modifier="nowrap">{_("Partition")}</Th>
-              {/* TRANSLATORS: names the column saying where the new system
-                  mounts a partition it takes over. */}
-              <Th modifier="nowrap">{_("Path")}</Th>
               <Th modifier="nowrap">{_("Content")}</Th>
               <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
                 {_("Size")}
               </Th>
-              {/* One word, and the page's own. "Action" rather than "What
-                    happens": nothing has happened yet, and a heading is a name
-                    for a column rather than a sentence about it. */}
-              <Th modifier="nowrap">{_("Action")}</Th>
               <Th>
                 {/* The column of menus has nothing to head: a heading over it
-                      names a column the reader can already see the point of.
-                      "Options" rather than "Actions", which the column beside
-                      it has just spent on what the installer does. */}
+                      names a column the reader can already see the point of. */}
                 <Text srOnly>{_("Options")}</Text>
               </Th>
             </Tr>
@@ -496,16 +518,15 @@ export default function CurrentContentSection({
                       </Text>
                     </Th>
                     <Td />
-                    <Td />
                     <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
-                    <Td />
                     <Td />
                   </Tr>
                 );
               }
 
-              /* Worked out once and given to the row, which both says it in the
-                 action column and reads the rest of itself against it. */
+              /* Worked out once and given to the row, which says it beside the
+                 name, reads the rest of itself against it, and offers to have
+                 it changed. */
               const decision = decisionFor(
                 rule,
                 entries.find((e) => e.name === row.name),
@@ -519,32 +540,17 @@ export default function CurrentContentSection({
                   entries={entries}
                   decision={decision}
                   menu={
-                    subject.collection !== "volumeGroups" && (
-                      <PartitionMenu
-                        part={row}
-                        reusedAs={entries.find((e) => e.name === row.name)?.mountPath}
-                        collection={subject.collection}
-                        index={subject.index}
-                      />
-                    )
-                  }
-                  decides={
-                    decision &&
-                    (rule ? (
-                      decisionLabel(decision)
-                    ) : (
-                      <PartitionSpaceControl
-                        partition={row}
-                        governed={rows.filter(
-                          (candidate): candidate is System.Device =>
-                            !isFreeSpace(candidate) &&
-                            !entries.find((e) => e.name === candidate.name)?.mountPath,
-                        )}
-                        entries={entries}
-                        collection={subject.collection}
-                        index={subject.index}
-                      />
-                    ))
+                    <PartitionMenu
+                      part={row}
+                      reusedAs={entries.find((e) => e.name === row.name)?.mountPath}
+                      /* Where the device gives no rule of its own, and the row
+                         is not spoken for by the new system. */
+                      decidesHere={decision !== undefined && rule === undefined}
+                      governed={governed}
+                      entries={entries}
+                      collection={subject.collection}
+                      index={subject.index}
+                    />
                   }
                 />
               );
