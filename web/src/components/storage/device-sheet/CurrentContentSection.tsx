@@ -201,7 +201,7 @@ function reportFor(outcome: Outcome): Report {
             // TRANSLATORS: what the installation will do to a partition already
             // on the disk: leave it where it is, and empty it for the new
             // system. The bracketed word is the one that reads as a loss.
-            sentence={_("Kept ([formatted])")}
+            sentence={_("Keep ([formatted])")}
           >
             {(text) => <span className={DESTROYS_CLASS}>{text}</span>}
           </Interpolate>
@@ -284,7 +284,14 @@ function PartitionRow({
      go. The name, what is on it and how big it is are facts about a partition
      that will not be there afterwards, and the word in the action column is one
      word at the far end of the row to carry back across the other three. */
-  const struck = (content: React.ReactNode) => (decision === "delete" ? <s>{content}</s> : content);
+  const struck = (content: React.ReactNode) =>
+    decision === "delete" ? (
+      <s>
+        <Text textStyle="textColorSubtle">{content}</Text>
+      </s>
+    ) : (
+      content
+    );
 
   return (
     <Tr>
@@ -348,25 +355,9 @@ function PartitionRow({
             ))}
         </Flex>
       </Td>
-      {/* The size it ends at where a shrink is planned, with the size it has
-          today under it: the change beside the value it changes. On the same
-          edge as every other size, so a column of them is compared by looking
-          down rather than by reading each one. */}
       <Td className={alignmentStyles.textAlignEnd}>
         {shrunkTo !== undefined ? (
-          <>
-            <div>{deviceSize(shrunkTo)}</div>
-            {size !== undefined && (
-              <div className="agm-row-note">
-                {sprintf(
-                  // TRANSLATORS: under the size a partition ends up with. %s is
-                  // the size it has today, such as "3 GiB".
-                  _("Shrunk from %s"),
-                  deviceSize(size),
-                )}
-              </div>
-            )}
-          </>
+          <div>{deviceSize(size)}</div>
         ) : (
           size !== undefined && struck(deviceSize(size))
         )}
@@ -446,7 +437,12 @@ export default function CurrentContentSection({
           so the decision is offered there too. */}
       {rows.some((row) => !isFreeSpace(row)) && (
         <StackItem>
-          <SpaceDecision collection={subject.collection} index={subject.index} isAssertive />
+          <Flex>
+            <FlexItem>{_("Some text")}</FlexItem>
+            <FlexItem align={{ default: "alignRight" }}>
+              <SpaceDecision collection={subject.collection} index={subject.index} isAssertive />
+            </FlexItem>
+          </Flex>
         </StackItem>
       )}
       <StackItem>

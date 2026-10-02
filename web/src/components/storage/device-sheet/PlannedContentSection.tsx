@@ -124,7 +124,7 @@ export default function PlannedContentSection({
   const group = entry.config as ConfigModel.VolumeGroup;
   const device = entry.config as Partitionable.Device;
 
-  const planned = plannedOn(entry);
+  const planned = plannedOn(entry).filter((p) => !p.name);
 
   const addPath = isVolumeGroup
     ? generateEncodedPath(PATHS.volumeGroup.logicalVolume.add, { id: group.vgName })

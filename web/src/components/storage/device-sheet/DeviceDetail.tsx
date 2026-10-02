@@ -21,16 +21,14 @@
  */
 
 import React from "react";
-import { Divider, Stack, StackItem } from "@patternfly/react-core";
+import { Stack, StackItem } from "@patternfly/react-core";
 import PlannedContentSection from "~/components/storage/device-sheet/PlannedContentSection";
 import PartitionsStatement from "~/components/storage/device-sheet/PartitionsStatement";
 import CurrentContentSection, {
   hasCurrentContent,
 } from "~/components/storage/device-sheet/CurrentContentSection";
-import TabNote from "~/components/storage/device-sheet/TabNote";
 import UsedByStatement from "~/components/storage/device-sheet/UsedByStatement";
 import BootStatement from "~/components/storage/device-sheet/BootStatement";
-import { _ } from "~/i18n";
 import type { Entry } from "~/components/storage/device-sheet/entry";
 import type { SheetEntry } from "~/components/storage/shared/use-sheet";
 
@@ -65,45 +63,17 @@ export default function DeviceDetail({ entry, subject }: DeviceDetailProps): Rea
      report an absence the reader did not cause. */
   const hasCurrent = hasCurrentContent(entry);
 
-  /* Whole sentences per kind of entry: an article and a noun agree in most
-     languages, and a slot taking either "disk" or "volume group" would leave a
-     translator unable to make them. */
-  const isRaid = subject.collection === "mdRaids";
-  const plannedLead = () => {
-    // FIXME: For disks with existing partitions or VGs with existing LVs, we should say "created or
-    // reused" and for the rest only "created".
-    if (entry.isVolumeGroup)
-      return _("Pieces of the new system that will be created in this volume group.");
-    // TRANSLATORS: opens the part of the panel showing what a software RAID will hold.
-    if (isRaid) return _("Pieces of the new system that will be created or reused in this RAID.");
-    // TRANSLATORS: opens the part of the panel showing what a disk will hold.
-    return _("Pieces of the new system that will be created or reused in this disk.");
-  };
-
   return (
     <Stack hasGutter>
       {/* Only where the machine has something on the entry today. */}
       {hasCurrent && (
         <>
           <StackItem>
-            {/* The one rule across the whole panel. The blocks are two subjects
-                rather than two parts of one, and the gap between them says that
-                less plainly the further the first block runs. */}
-            <Divider />
-          </StackItem>
-          <StackItem>
-            <TabNote
-              // FIXME: we need the LVM alternative here
-              lead={_(
-                "What to do with the existing partitions to make space for the planned ones.",
-              )}
-            />
             <CurrentContentSection entry={entry} subject={subject} />
           </StackItem>
         </>
       )}
       <StackItem>
-        <TabNote lead={plannedLead()} />
         <BootStatement entry={entry} />
         <UsedByStatement entry={entry} />
         {entry.isVolumeGroup && <PlannedContentSection entry={entry} subject={subject} />}
