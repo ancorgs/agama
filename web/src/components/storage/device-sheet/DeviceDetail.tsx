@@ -23,12 +23,10 @@
 import React from "react";
 import { Stack, StackItem } from "@patternfly/react-core";
 import PlannedContentSection from "~/components/storage/device-sheet/PlannedContentSection";
-import PartitionsStatement from "~/components/storage/device-sheet/PartitionsStatement";
+import PlannedPartitionsSection from "~/components/storage/device-sheet/PlannedPartitionsSection";
 import CurrentContentSection, {
   hasCurrentContent,
 } from "~/components/storage/device-sheet/CurrentContentSection";
-import UsedByStatement from "~/components/storage/device-sheet/UsedByStatement";
-import BootStatement from "~/components/storage/device-sheet/BootStatement";
 import type { Entry } from "~/components/storage/device-sheet/entry";
 import type { SheetEntry } from "~/components/storage/shared/use-sheet";
 
@@ -74,10 +72,8 @@ export default function DeviceDetail({ entry, subject }: DeviceDetailProps): Rea
         </>
       )}
       <StackItem>
-        <BootStatement entry={entry} />
-        <UsedByStatement entry={entry} />
         {entry.isVolumeGroup && <PlannedContentSection entry={entry} subject={subject} />}
-        {!entry.isVolumeGroup && <PartitionsStatement entry={entry} subject={subject} />}
+        {!entry.isVolumeGroup && <PlannedPartitionsSection entry={entry} subject={subject} />}
       </StackItem>
     </Stack>
   );
