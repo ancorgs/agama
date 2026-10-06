@@ -168,7 +168,7 @@ function PartitionMenu({
 
   /* The space decision first: it is what the row's first column says about
      itself, so the menu opens on the thing the reader just read. */
-  const decisions = spaceItems;
+  const decisions = reusedAs ? [] : spaceItems;
   const items = [
     ...decisions,
     ...(decisions.length && reuseItems.length ? [<Divider key="rule" component="li" />] : []),
@@ -227,6 +227,7 @@ function statusFor(
   decision: Decision | undefined,
   reusedAs: string | undefined,
   formats: boolean,
+  canShrink: boolean,
 ): Status | undefined {
   if (reusedAs) {
     const path = formattedPath(reusedAs);
@@ -248,9 +249,9 @@ function statusFor(
       // nothing.
       return { text: _("keep"), destroys: false };
     case "resizeIfNeeded":
-      // TRANSLATORS: what is to become of a partition already on the disk: it
-      // may be made smaller, should the installation run short of room.
-      return { text: _("shrink if needed"), destroys: false };
+      return canShrink
+        ? { text: _("shrink if needed"), destroys: false }
+        : { text: _("keep (cannot shrink)"), destroys: false };
     case "delete":
       // TRANSLATORS: what is to become of a partition already on the disk: it
       // is removed, and everything on it lost.
@@ -296,6 +297,7 @@ function PartitionRow({
   const systems = part.block?.systems || [];
   const size = part.block?.size;
   const staged = manager.stagingDevice(part.sid);
+  const canShrink = part.block?.shrinking?.supported === true;
   const shrunkTo = outcome === "shrunk" ? staged?.block?.size : undefined;
   /* Whether what is on the partition survives being taken over, read from the
      request rather than from the plan. The table is about what was asked for:
@@ -311,7 +313,7 @@ function PartitionRow({
     part.description ||
     // TRANSLATORS: said of a partition whose content is not recognized.
     _("unrecognized");
-  const status = statusFor(decision, reusedAs, formats);
+  const status = statusFor(decision, reusedAs, formats, canShrink);
 
   /* A rule through what the row describes, where the reader has allowed it to
      go. The name, what is on it and how big it is are facts about a partition
