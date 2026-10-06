@@ -22,12 +22,12 @@
 
 import React from "react";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
-import { Button, Divider, Flex, FlexItem, Label, Stack, StackItem } from "@patternfly/react-core";
+import { Divider, Flex, FlexItem, Label, Stack, StackItem } from "@patternfly/react-core";
 import alignmentStyles from "@patternfly/react-styles/css/utilities/Alignment/alignment";
 import { sprintf } from "sprintf-js";
 import Text from "~/components/core/Text";
 import Icon from "~/components/layout/Icon";
-import SpaceDecision, { policyMeaning } from "~/components/storage/storage-page/SpaceDecision";
+import SpaceDecision from "~/components/storage/storage-page/SpaceDecision";
 import MenuButton, { MenuButtonItem } from "~/components/core/MenuButton";
 import RowMenuToggle from "~/components/storage/entries-table/RowMenuToggle";
 import { STORAGE as PATHS } from "~/routes/paths";
@@ -437,19 +437,6 @@ export type CurrentContentSectionProps = {
  * is the thing the reader chose and the one part of the row still true
  * afterwards.
  *
- * The list itself waits to be asked for. Three of the four space answers are
- * one decision taken for every partition at once, and a reader who has just
- * read the answer learns nothing from a table repeating it on each row; so the
- * panel opens on the sentence saying what the answer means, with the list a
- * link away. Custom is the answer that says the parts decide, and a reader who
- * asked to decide part by part is asking for the parts, so under custom the
- * list is simply there.
- *
- * Once shown it stays. Going back is a thing to offer only where the reader
- * would want it, and nobody reading a list wants it swapped for a sentence
- * they have already read, least of all in the middle of changing the answer
- * the sentence is about.
- *
  * Shown only where there is something to show, which whoever offers the view
  * settles with {@link hasCurrentContent}. The view never has to say that it has
  * nothing to say.
@@ -477,35 +464,13 @@ export default function CurrentContentSection({
     (row): row is System.Device =>
       !isFreeSpace(row) && !entries.find((e) => e.name === row.name)?.mountPath,
   );
-  /* Whether the space decision has anything to be about. A device holding
-     nothing but free space is not spared anything by the answer, and a
-     sentence summarizing what happens to its content would be summarizing
-     nothing. */
-  const governable = rows.some((row) => !isFreeSpace(row));
-
-  /* Whether the reader is looking at the list or at one sentence instead.
-     Three of the four answers are the whole truth in a sentence: the reader
-     chose the same thing for every partition, and a table repeating it row by
-     row is a page of detail to confirm a decision they just made. Custom is
-     the answer that says the parts decide, so it is the answer that needs
-     them listed.
-
-     It only ever turns on. A reader who asked for the list has it for as long
-     as the panel is open, since taking it away on the next answer would leave
-     them reading a summary of a decision they are in the middle of changing,
-     and hunting for the link again to carry on. */
-  const [revealed, setRevealed] = React.useState(policy === "custom" || !governable);
-
-  React.useEffect(() => {
-    if (policy === "custom" || !governable) setRevealed(true);
-  }, [policy, governable]);
 
   return (
     <Stack>
       {/* Only where there is something for the rule to be about. A group's
           logical volumes are governed the same way its disks' partitions are,
           so the decision is offered there too. */}
-      {governable && (
+      {rows.some((row) => !isFreeSpace(row)) && (
         <StackItem>
           <Flex>
             <FlexItem>
@@ -518,104 +483,87 @@ export default function CurrentContentSection({
         </StackItem>
       )}
       <StackItem>
-        {!revealed && (
-          /* The answer, and the way to the list behind it. Both on one line
-             and in that order: the sentence is what the reader came for, and
-             the offer of more only makes sense once they know what the more
-             would be about. */
-          <div>
-            {policyMeaning(policy)}{" "}
-            <Button variant="link" isInline onClick={() => setRevealed(true)}>
-              {/* TRANSLATORS: opens the list of what is on the device today,
-                  shown in place of the sentence summarizing what becomes of
-                  it. */}
-              {_("More details")}
-            </Button>
-          </div>
-        )}
-        {revealed && (
-          <Table
-            role="table"
-            gridBreakPoint=""
-            variant="compact"
-            // TRANSLATORS: names the list of what is on a device already.
-            aria-label={_("Current content")}
-          >
-            {/* Read rather than hidden from sight: what a column holds is told
+        <Table
+          role="table"
+          gridBreakPoint=""
+          variant="compact"
+          // TRANSLATORS: names the list of what is on a device already.
+          aria-label={_("Current content")}
+        >
+          {/* Read rather than hidden from sight: what a column holds is told
                 by what it is called, and a reader left to work that out from
                 the values is being asked to do the heading's job.
 
                 Each heading kept whole. PatternFly cuts one down to whatever
                 its column came out as, which shortens the one thing on the row
                 whose whole job is to be read. */}
-            <Thead>
-              <Tr>
-                {/* Named for what the column is a list of, not for everything it
+          <Thead>
+            <Tr>
+              {/* Named for what the column is a list of, not for everything it
                   says. What is to become of each one rides after its name
                   rather than in a column of its own, and a heading naming both
                   would be a sentence where a name goes. */}
-                <Th modifier="nowrap">{_("Partition")}</Th>
-                <Th modifier="nowrap">{_("Content")}</Th>
-                <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
-                  {_("Size")}
-                </Th>
-                <Th>
-                  {/* The column of menus has nothing to head: a heading over it
+              <Th modifier="nowrap">{_("Partition")}</Th>
+              <Th modifier="nowrap">{_("Content")}</Th>
+              <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
+                {_("Size")}
+              </Th>
+              <Th>
+                {/* The column of menus has nothing to head: a heading over it
                       names a column the reader can already see the point of. */}
-                  <Text srOnly>{_("Options")}</Text>
-                </Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {rows.map((row, at) => {
-                if (isFreeSpace(row)) {
-                  return (
-                    <Tr key={`free-${at}`}>
-                      <Th scope="row">
-                        <Text textStyle="textColorSubtle">
-                          {/* TRANSLATORS: a row for room on a device that no
+                <Text srOnly>{_("Options")}</Text>
+              </Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {rows.map((row, at) => {
+              if (isFreeSpace(row)) {
+                return (
+                  <Tr key={`free-${at}`}>
+                    <Th scope="row">
+                      <Text textStyle="textColorSubtle">
+                        {/* TRANSLATORS: a row for room on a device that no
                             partition takes. */}
-                          {_("Free space: use if needed")}
-                        </Text>
-                      </Th>
-                      <Td />
-                      <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
-                      <Td />
-                    </Tr>
-                  );
-                }
+                        {_("Free space: use if needed")}
+                      </Text>
+                    </Th>
+                    <Td />
+                    <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
+                    <Td />
+                  </Tr>
+                );
+              }
 
-                /* Worked out once and given to the row, which says it beside the
+              /* Worked out once and given to the row, which says it beside the
                  name, reads the rest of itself against it, and offers to have
                  it changed. */
-                const decision = decisionFor(
-                  rule,
-                  entries.find((e) => e.name === row.name),
-                );
+              const decision = decisionFor(
+                rule,
+                entries.find((e) => e.name === row.name),
+              );
 
-                return (
-                  <PartitionRow
-                    key={row.sid}
-                    part={row}
-                    manager={manager}
-                    entries={entries}
-                    decision={decision}
-                    menu={
-                      <PartitionMenu
-                        part={row}
-                        reusedAs={entries.find((e) => e.name === row.name)?.mountPath}
-                        governed={governed}
-                        entries={entries}
-                        collection={subject.collection}
-                        index={subject.index}
-                      />
-                    }
-                  />
-                );
-              })}
-            </Tbody>
-          </Table>
-        )}
+              return (
+                <PartitionRow
+                  key={row.sid}
+                  part={row}
+                  manager={manager}
+                  entries={entries}
+                  decision={decision}
+                  menu={
+                    <PartitionMenu
+                      part={row}
+                      reusedAs={entries.find((e) => e.name === row.name)?.mountPath}
+                      governed={governed}
+                      entries={entries}
+                      collection={subject.collection}
+                      index={subject.index}
+                    />
+                  }
+                />
+              );
+            })}
+          </Tbody>
+        </Table>
       </StackItem>
     </Stack>
   );
