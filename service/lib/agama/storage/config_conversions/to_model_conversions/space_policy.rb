@@ -36,7 +36,7 @@ module Agama
           def convert
             return "delete" if delete_all_volumes?
             return "resize" if shrink_all_volumes?
-            return "custom" if delete_volume? || resize_volume?
+            return "custom" if delete_volume? || resize_volume? || reused_volume?
 
             "keep"
           end

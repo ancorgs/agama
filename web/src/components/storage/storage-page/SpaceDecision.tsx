@@ -161,7 +161,7 @@ export default function SpaceDecision({ collection, index, isAssertive }: SpaceD
             key={policy}
             policy={policy}
             isSelected={policy === current}
-            isDisabled={reused && ["delete", "resize"].includes(policy)}
+            isDisabled={reused}
             isAssertive={isAssertive}
             onChoose={choose}
           />
