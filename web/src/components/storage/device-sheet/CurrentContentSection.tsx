@@ -22,12 +22,12 @@
 
 import React from "react";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
-import { Divider, Flex, FlexItem, Label, Stack, StackItem } from "@patternfly/react-core";
+import { Button, Divider, Flex, FlexItem, Label, Stack, StackItem } from "@patternfly/react-core";
 import alignmentStyles from "@patternfly/react-styles/css/utilities/Alignment/alignment";
 import { sprintf } from "sprintf-js";
 import Text from "~/components/core/Text";
 import Icon from "~/components/layout/Icon";
-import SpaceDecision from "~/components/storage/storage-page/SpaceDecision";
+import SpaceDecision, { policyMeaning } from "~/components/storage/storage-page/SpaceDecision";
 import MenuButton, { MenuButtonItem } from "~/components/core/MenuButton";
 import RowMenuToggle from "~/components/storage/entries-table/RowMenuToggle";
 import { STORAGE as PATHS } from "~/routes/paths";
@@ -437,6 +437,13 @@ export type CurrentContentSectionProps = {
  * is the thing the reader chose and the one part of the row still true
  * afterwards.
  *
+ * A sentence comes before the list either way, saying what the answer amounts
+ * to. Under the three answers taken for the whole device that sentence is the
+ * answer, and the list behind it is there to be checked rather than read, so
+ * it starts away behind a link. Under custom the sentence says what the list
+ * is for, because under custom the list is the control and there is nothing to
+ * put away.
+ *
  * Shown only where there is something to show, which whoever offers the view
  * settles with {@link hasCurrentContent}. The view never has to say that it has
  * nothing to say.
@@ -465,6 +472,16 @@ export default function CurrentContentSection({
       !isFreeSpace(row) && !entries.find((e) => e.name === row.name)?.mountPath,
   );
 
+  /* Under the fourth answer the list is the control, so it is simply there: a
+     reader who asked to decide part by part is asking for the parts, and a
+     link to reach them would be a door in front of the thing they asked for.
+     Under the other three the answer is the whole truth in one sentence, the
+     reader chose the same thing for every partition, and the list behind it is
+     there to be checked rather than read. So it starts away. */
+  const isCustom = policy === "custom";
+  const [expanded, setExpanded] = React.useState(false);
+  const tableId = React.useId();
+
   return (
     <Stack>
       {/* Only where there is something for the rule to be about. A group's
@@ -482,88 +499,123 @@ export default function CurrentContentSection({
           </Flex>
         </StackItem>
       )}
+      {/* What the answer comes to, before anything it is an answer about. The
+          reader has just given it, and a list of partitions arriving without
+          a word first leaves them working out what it is a list of and what
+          the rows have to do with what they chose. */}
       <StackItem>
-        <Table
-          role="table"
-          gridBreakPoint=""
-          variant="compact"
-          // TRANSLATORS: names the list of what is on a device already.
-          aria-label={_("Current content")}
-        >
-          {/* Read rather than hidden from sight: what a column holds is told
+        {isCustom ? (
+          // TRANSLATORS: said under the "Custom" answer, where what happens to
+          // each partition is decided one at a time in the list below.
+          _("Use the table below to decide what to do with each partition.")
+        ) : (
+          <>
+            {policyMeaning(policy)}{" "}
+            <Button
+              variant="link"
+              isInline
+              aria-expanded={expanded}
+              aria-controls={tableId}
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded
+                ? // TRANSLATORS: puts away the list of what is on the device today.
+                  _("Hide details")
+                : // TRANSLATORS: shows the list of what is on the device today,
+                  // partition by partition.
+                  _("More details")}
+            </Button>
+          </>
+        )}
+      </StackItem>
+      <StackItem>
+        {/* Put away rather than taken down, so the link above has something to
+            name as the thing it opens, and so a plain element carries the
+            attribute that hides it: the browser's own rule for it loses to any
+            layout a class might set. */}
+        <div id={tableId} hidden={!isCustom && !expanded}>
+          <Table
+            role="table"
+            gridBreakPoint=""
+            variant="compact"
+            // TRANSLATORS: names the list of what is on a device already.
+            aria-label={_("Current content")}
+          >
+            {/* Read rather than hidden from sight: what a column holds is told
                 by what it is called, and a reader left to work that out from
                 the values is being asked to do the heading's job.
 
                 Each heading kept whole. PatternFly cuts one down to whatever
                 its column came out as, which shortens the one thing on the row
                 whose whole job is to be read. */}
-          <Thead>
-            <Tr>
-              {/* Named for what the column is a list of, not for everything it
+            <Thead>
+              <Tr>
+                {/* Named for what the column is a list of, not for everything it
                   says. What is to become of each one rides after its name
                   rather than in a column of its own, and a heading naming both
                   would be a sentence where a name goes. */}
-              <Th modifier="nowrap">{_("Partition")}</Th>
-              <Th modifier="nowrap">{_("Content")}</Th>
-              <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
-                {_("Size")}
-              </Th>
-              <Th>
-                {/* The column of menus has nothing to head: a heading over it
+                <Th modifier="nowrap">{_("Partition")}</Th>
+                <Th modifier="nowrap">{_("Content")}</Th>
+                <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
+                  {_("Size")}
+                </Th>
+                <Th>
+                  {/* The column of menus has nothing to head: a heading over it
                       names a column the reader can already see the point of. */}
-                <Text srOnly>{_("Options")}</Text>
-              </Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {rows.map((row, at) => {
-              if (isFreeSpace(row)) {
-                return (
-                  <Tr key={`free-${at}`}>
-                    <Th scope="row">
-                      <Text textStyle="textColorSubtle">
-                        {/* TRANSLATORS: a row for room on a device that no
+                  <Text srOnly>{_("Options")}</Text>
+                </Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {rows.map((row, at) => {
+                if (isFreeSpace(row)) {
+                  return (
+                    <Tr key={`free-${at}`}>
+                      <Th scope="row">
+                        <Text textStyle="textColorSubtle">
+                          {/* TRANSLATORS: a row for room on a device that no
                             partition takes. */}
-                        {_("Free space: use if needed")}
-                      </Text>
-                    </Th>
-                    <Td />
-                    <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
-                    <Td />
-                  </Tr>
-                );
-              }
+                          {_("Free space: use if needed")}
+                        </Text>
+                      </Th>
+                      <Td />
+                      <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
+                      <Td />
+                    </Tr>
+                  );
+                }
 
-              /* Worked out once and given to the row, which says it beside the
+                /* Worked out once and given to the row, which says it beside the
                  name, reads the rest of itself against it, and offers to have
                  it changed. */
-              const decision = decisionFor(
-                rule,
-                entries.find((e) => e.name === row.name),
-              );
+                const decision = decisionFor(
+                  rule,
+                  entries.find((e) => e.name === row.name),
+                );
 
-              return (
-                <PartitionRow
-                  key={row.sid}
-                  part={row}
-                  manager={manager}
-                  entries={entries}
-                  decision={decision}
-                  menu={
-                    <PartitionMenu
-                      part={row}
-                      reusedAs={entries.find((e) => e.name === row.name)?.mountPath}
-                      governed={governed}
-                      entries={entries}
-                      collection={subject.collection}
-                      index={subject.index}
-                    />
-                  }
-                />
-              );
-            })}
-          </Tbody>
-        </Table>
+                return (
+                  <PartitionRow
+                    key={row.sid}
+                    part={row}
+                    manager={manager}
+                    entries={entries}
+                    decision={decision}
+                    menu={
+                      <PartitionMenu
+                        part={row}
+                        reusedAs={entries.find((e) => e.name === row.name)?.mountPath}
+                        governed={governed}
+                        entries={entries}
+                        collection={subject.collection}
+                        index={subject.index}
+                      />
+                    }
+                  />
+                );
+              })}
+            </Tbody>
+          </Table>
+        </div>
       </StackItem>
     </Stack>
   );

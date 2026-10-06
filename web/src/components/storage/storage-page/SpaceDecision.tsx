@@ -53,7 +53,15 @@ function label(policy: ConfigModel.SpacePolicy, isAssertive: boolean): Translate
   }
 }
 
-/** Read before the option is taken, which is when it is worth knowing. */
+/**
+ * Read before the option is taken, which is when it is worth knowing, and
+ * again after, where the answer taken is all a reader wants.
+ *
+ * The device panel opens on this rather than on the list of what is on the
+ * device. One sentence in both places: a summary worded one way here and
+ * another way there would have a reader comparing the two to work out whether
+ * they are the same decision.
+ */
 function meaning(policy: ConfigModel.SpacePolicy): TranslatedString {
   switch (policy) {
     case "delete":
@@ -170,3 +178,5 @@ export default function SpaceDecision({ collection, index, isAssertive }: SpaceD
     </div>
   );
 }
+
+export { meaning as policyMeaning };
