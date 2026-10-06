@@ -169,7 +169,7 @@ export default function SpaceDecision({ collection, index, isAssertive }: SpaceD
             key={policy}
             policy={policy}
             isSelected={policy === current}
-            isDisabled={reused}
+            isDisabled={reused && policy !== "custom"}
             isAssertive={isAssertive}
             onChoose={choose}
           />
