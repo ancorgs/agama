@@ -218,16 +218,20 @@ type Status = { text: string; destroys: boolean };
  * where the installation means to format would have a reader believe their data
  * is safe. So the two are different phrases, and the one that loses something
  * says so and is colored.
+ *
+ * All of it off what was asked for, none of it off what the installer made of
+ * it. The two part company whenever the request cannot be met, and a table that
+ * answers one question with the other cannot be read at all.
  */
 function statusFor(
   decision: Decision | undefined,
   reusedAs: string | undefined,
-  formatted: boolean,
+  formats: boolean,
 ): Status | undefined {
   if (reusedAs) {
     const path = formattedPath(reusedAs);
 
-    return formatted
+    return formats
       ? // TRANSLATORS: what is to become of a partition already on the disk: it
         // is emptied and given to the new system. %s is where the new system
         // mounts it, such as "/home".
@@ -287,21 +291,27 @@ function PartitionRow({
   menu?: React.ReactNode;
 }) {
   const outcome = outcomeOf(manager, part);
-  const reusedAs = entries.find((e) => e.name === part.name)?.mountPath;
+  const request = entries.find((e) => e.name === part.name);
+  const reusedAs = request?.mountPath;
   const systems = part.block?.systems || [];
   const size = part.block?.size;
   const staged = manager.stagingDevice(part.sid);
   const shrunkTo = outcome === "shrunk" ? staged?.block?.size : undefined;
-  /* What the partition is left holding, where that is not what it holds today.
-     Read from the plan rather than from the request, since the request can
-     leave the file system to the installer and the plan cannot. */
-  const newFilesystem = outcome === "formatted" ? staged?.filesystem?.type : undefined;
+  /* Whether what is on the partition survives being taken over, read from the
+     request rather than from the plan. The table is about what was asked for:
+     a request to format is a request to format whether or not the installer
+     got as far as a plan that does it, and a reader who asked for one and is
+     shown the other has no way to tell which they are looking at. */
+  const formats = reusedAs !== undefined && request?.filesystem?.reuse !== true;
+  /* What it is left holding. The request first, and the plan where the request
+     left the choice to the installer, which it may. */
+  const newFilesystem = formats ? request?.filesystem?.type || staged?.filesystem?.type : undefined;
   const currentContent =
     part.filesystem?.type ||
     part.description ||
     // TRANSLATORS: said of a partition whose content is not recognized.
     _("unrecognized");
-  const status = statusFor(decision, reusedAs, newFilesystem !== undefined);
+  const status = statusFor(decision, reusedAs, formats);
 
   /* A rule through what the row describes, where the reader has allowed it to
      go. The name, what is on it and how big it is are facts about a partition
@@ -349,7 +359,7 @@ function PartitionRow({
       <Td>
         <Flex gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsCenter" }}>
           <FlexItem>
-            {newFilesystem ? (
+            {formats ? (
               /* Struck through and subdued rather than colored: the rule
                  through it already says it goes, and a word in the page's
                  danger color beside the one replacing it would make the loss
@@ -361,13 +371,16 @@ function PartitionRow({
               struck(currentContent)
             )}
           </FlexItem>
-          {newFilesystem && <FlexItem>{newFilesystem}</FlexItem>}
+          {/* Nothing where the request names no file system and the installer
+              has not settled on one either: the rule through what is there now
+              has already said it goes. */}
+          {formats && newFilesystem && <FlexItem>{newFilesystem}</FlexItem>}
           {/* The system left standing on a row being deleted. It is a mark
               rather than a word in the sentence, so a rule through it would be
               a rule through a label; and it is the one thing on the row that
               makes the deletion mean something, which is not helped by being
               crossed out. */}
-          {!newFilesystem &&
+          {!formats &&
             systems.map((system) => (
               <FlexItem key={system}>
                 <Label isCompact>{system}</Label>
