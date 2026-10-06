@@ -102,7 +102,6 @@ export function hasCurrentContent(entry: Entry): boolean {
 function PartitionMenu({
   part,
   reusedAs,
-  decidesHere,
   governed,
   entries,
   collection,
@@ -111,8 +110,6 @@ function PartitionMenu({
   part: System.Device;
   /** Where the new system mounts it already, where it does. */
   reusedAs?: string;
-  /** Whether this row is where its own space decision is made. */
-  decidesHere: boolean;
   /** Every partition that decision governs, which it is written back with. */
   governed: System.Device[];
   entries: (ConfigModel.Partition | ConfigModel.LogicalVolume)[];
@@ -171,7 +168,7 @@ function PartitionMenu({
 
   /* The space decision first: it is what the row's first column says about
      itself, so the menu opens on the thing the reader just read. */
-  const decisions = decidesHere ? spaceItems : [];
+  const decisions = spaceItems;
   const items = [
     ...decisions,
     ...(decisions.length && reuseItems.length ? [<Divider key="rule" component="li" />] : []),
@@ -326,17 +323,13 @@ function PartitionRow({
           this partition and nothing else, so the reader should not have to
           cross the row to collect it, nor keep the name in mind on the way. */}
       <Th scope="row" modifier="nowrap">
-        {struck(
+        <Text isBold>{baseName(part.name)}:</Text>
+        {part.block?.encrypted && (
           <>
-            <Text isBold>{baseName(part.name)}</Text>
-            {part.block?.encrypted && (
-              <>
-                {" "}
-                {/* TRANSLATORS: marks a partition whose content is encrypted. */}
-                <Icon name="lock" size="xs" aria-label={_("encrypted")} />
-              </>
-            )}
-          </>,
+            {" "}
+            {/* TRANSLATORS: marks a partition whose content is encrypted. */}
+            <Icon name="lock" size="xs" aria-label={_("encrypted")} />
+          </>
         )}
         {status && (
           <>
@@ -465,7 +458,7 @@ export default function CurrentContentSection({
       {rows.some((row) => !isFreeSpace(row)) && (
         <StackItem>
           <Flex>
-            <FlexItem>{_("Some text")}</FlexItem>
+            <FlexItem>{_("What to do with the previous content")}</FlexItem>
             <FlexItem align={{ default: "alignRight" }}>
               <SpaceDecision collection={subject.collection} index={subject.index} isAssertive />
             </FlexItem>
@@ -514,7 +507,7 @@ export default function CurrentContentSection({
                       <Text textStyle="textColorSubtle">
                         {/* TRANSLATORS: a row for room on a device that no
                             partition takes. */}
-                        {_("Free space")}
+                        {_("Free space: use if needed")}
                       </Text>
                     </Th>
                     <Td />
@@ -543,9 +536,6 @@ export default function CurrentContentSection({
                     <PartitionMenu
                       part={row}
                       reusedAs={entries.find((e) => e.name === row.name)?.mountPath}
-                      /* Where the device gives no rule of its own, and the row
-                         is not spoken for by the new system. */
-                      decidesHere={decision !== undefined && rule === undefined}
                       governed={governed}
                       entries={entries}
                       collection={subject.collection}
