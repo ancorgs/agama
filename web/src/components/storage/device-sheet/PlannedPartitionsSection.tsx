@@ -21,10 +21,11 @@
  */
 
 import React from "react";
-import { Flex, FlexItem, Stack, StackItem } from "@patternfly/react-core";
+import { List, ListItem, Flex, FlexItem, Stack, StackItem } from "@patternfly/react-core";
 import Link from "~/components/core/Link";
+import Text from "~/components/core/Text";
 import Icon from "~/components/layout/Icon";
-import PartitionsStatement from "~/components/storage/device-sheet/PartitionsStatement";
+import PlannedContentSection from "~/components/storage/device-sheet/PlannedContentSection";
 import UsedByStatement from "~/components/storage/device-sheet/UsedByStatement";
 import BootStatement from "~/components/storage/device-sheet/BootStatement";
 import { STORAGE as PATHS } from "~/routes/paths";
@@ -98,37 +99,39 @@ export default function PlannedPartitionsSection({
     </Link>
   );
 
-  if (!planned.length) {
-    return (
-      <Stack>
-        <StackItem>
-          <BootStatement entry={entry} />
-        </StackItem>
-        <StackItem>
-          <UsedByStatement entry={entry} />
-        </StackItem>
-        <StackItem>
-          <Flex>
-            <FlexItem>
-              {users.length || isBoot ? _("You can define additional partitions.") : _("Something")}
-            </FlexItem>
-            <FlexItem>{add("secondary")}</FlexItem>
-          </Flex>
-        </StackItem>
-      </Stack>
-    );
-  }
-
   return (
-    <Stack>
+    <Stack hasGutter>
       <StackItem>
-        <PartitionsStatement entry={entry} subject={subject} />
+        <Text isBold>{_("New partitions to create in the disk")}</Text>
+        {!!planned.length && !users.length && (
+          <PlannedContentSection entry={entry} subject={subject} />
+        )}
+        {!!users.length && (
+          <List>
+            <UsedByStatement entry={entry} />
+            <ListItem>
+              {!!planned.length && (
+                <>
+                  <Text>{_("Partitions from the following list")}</Text>
+                  <PlannedContentSection entry={entry} subject={subject} />
+                </>
+              )}
+              {!planned.length && (
+                <Flex>
+                  <FlexItem>
+                    {users.length || isBoot
+                      ? _("You can define additional partitions.")
+                      : _("You can define partitions.")}
+                  </FlexItem>
+                  <FlexItem>{add("secondary")}</FlexItem>
+                </Flex>
+              )}
+            </ListItem>
+          </List>
+        )}
       </StackItem>
       <StackItem>
         <BootStatement entry={entry} />
-      </StackItem>
-      <StackItem>
-        <UsedByStatement entry={entry} />
       </StackItem>
     </Stack>
   );

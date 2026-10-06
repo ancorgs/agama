@@ -52,7 +52,7 @@ export default function BootStatement({ entry }: BootStatementProps): React.Reac
   return (
     // Maybe the sentence below could provide access to a tooltip expanding the information
     // "Some partitions may be used or created if needed to make the system able to boot."
-    <Statement icon="settings_backup_restore" heading={_("Partitions needed for booting.")}>
+    <Statement icon={null} heading={_("Configure partitions needed for booting.")}>
       <Interpolate
         sentence={
           configModel.boot.isDefault(config)

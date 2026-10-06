@@ -171,8 +171,6 @@ export default function PlannedContentSection({
     <Stack hasGutter>
       <StackItem>
         <Table
-          // Horrible hack for demo purposes
-          style={isVolumeGroup ? {} : { width: "130%" }}
           role="table"
           gridBreakPoint=""
           variant="compact"

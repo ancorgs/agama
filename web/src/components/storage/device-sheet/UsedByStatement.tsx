@@ -21,8 +21,8 @@
  */
 
 import React from "react";
-import Statement from "~/components/storage/device-sheet/Statement";
 import RelatedNames from "~/components/storage/shared/RelatedNames";
+import { ListItem } from "@patternfly/react-core";
 import { usersOf } from "~/components/storage/shared/users";
 import { useConfigModel } from "~/hooks/model/storage/config-model";
 import { useFlattenDevices as useSystemDevices } from "~/hooks/model/system/storage";
@@ -54,14 +54,9 @@ export default function UsedByStatement({ entry }: UsedByStatementProps): React.
   if (users.length === 0) return null;
 
   return (
-    <Statement
-      icon="network_node"
-      // TRANSLATORS: names the entries of the installation that are built on
-      // this device.
-      // FIXME: this needs much better i18n support and a better grammar.
-      heading={_("Partitions needed as physical volumes for")}
-    >
+    <ListItem>
+      {_("Partitions needed as physical volumes for ")}
       <RelatedNames items={users} />
-    </Statement>
+    </ListItem>
   );
 }

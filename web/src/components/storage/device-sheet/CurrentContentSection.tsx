@@ -335,7 +335,7 @@ function PartitionRow({
           this partition and nothing else, so the reader should not have to
           cross the row to collect it, nor keep the name in mind on the way. */}
       <Th scope="row" modifier="nowrap">
-        <Text isBold>{baseName(part.name)}:</Text>
+        <Text>{baseName(part.name)}:</Text>
         {part.block?.encrypted && (
           <>
             {" "}
@@ -466,14 +466,16 @@ export default function CurrentContentSection({
   );
 
   return (
-    <Stack hasGutter>
+    <Stack>
       {/* Only where there is something for the rule to be about. A group's
           logical volumes are governed the same way its disks' partitions are,
           so the decision is offered there too. */}
       {rows.some((row) => !isFreeSpace(row)) && (
         <StackItem>
           <Flex>
-            <FlexItem>{_("What to do with the previous content")}</FlexItem>
+            <FlexItem>
+              <Text isBold>{_("What to do with the previous content")}</Text>
+            </FlexItem>
             <FlexItem align={{ default: "alignRight" }}>
               <SpaceDecision collection={subject.collection} index={subject.index} isAssertive />
             </FlexItem>
