@@ -37,14 +37,14 @@ function deletion(systems: string[], partitions: number): TranslatedString | nul
 
   if (!systems.length) {
     return sprintf(
-      n_("Includes %d destructive actions", "Includes %d destructive actions", partitions),
+      n_("Includes %d destructive action", "Includes %d destructive actions", partitions),
       partitions,
     );
   }
 
   return sprintf(
     n_(
-      "Includes %1$d destructive actions affecting %2$s.",
+      "Includes %1$d destructive action affecting %2$s.",
       "Includes %1$d destructive actions affecting %2$s.",
       partitions,
     ),
@@ -82,8 +82,8 @@ function resize(systems: string[], devices: System.Device[]): TranslatedString |
           n_(
             // TRANSLATORS: %1$d is the number of partitions being made smaller,
             // %2$s a list of the operating systems installed on them.
-            "Includes reducing %1$d partition affecting %2$s.",
-            "Includes reducing %1$d partitions affecting %2$s.",
+            "Includes a non-destructive reduction of %1$d partition affecting %2$s.",
+            "Includes a non-destructive reduction of %1$d partitions affecting %2$s.",
             count,
           ),
           count,
@@ -91,7 +91,11 @@ function resize(systems: string[], devices: System.Device[]): TranslatedString |
         )
       : sprintf(
           // TRANSLATORS: %d is the number of partitions being made smaller.
-          n_("Includes reducing %d partition.", "Includes reducing %d partitions.", count),
+          n_(
+            "Includes a non-destructive reduction of %d partition.",
+            "Includes a non-destructive reduction of %d partitions.",
+            count,
+          ),
           count,
         );
   }
@@ -102,8 +106,8 @@ function resize(systems: string[], devices: System.Device[]): TranslatedString |
           n_(
             // TRANSLATORS: %1$d is the number of logical volumes being made
             // smaller, %2$s a list of the operating systems installed on them.
-            "Includes reducing %1$d logical volume affecting %2$s.",
-            "Includes reducing %1$d logical volumes affecting %2$s.",
+            "Includes a non-destructive reduction of %1$d logical volume affecting %2$s.",
+            "Includes a non-destructive reduction of %1$d logical volumes affecting %2$s.",
             count,
           ),
           count,
@@ -112,8 +116,8 @@ function resize(systems: string[], devices: System.Device[]): TranslatedString |
       : sprintf(
           // TRANSLATORS: %d is the number of logical volumes being made smaller.
           n_(
-            "Includes reducing %d logical volume.",
-            "Includes reducing %d logical volumes.",
+            "Includes a non-destructive reduction of %d logical volume.",
+            "Includes a non-destructive reduction of %d logical volumes.",
             count,
           ),
           count,
@@ -128,8 +132,8 @@ function resize(systems: string[], devices: System.Device[]): TranslatedString |
           // TRANSLATORS: %1$d is the number of partitions and logical volumes
           // being made smaller, counted together, %2$s a list of the operating
           // systems installed on them.
-          "Includes reducing %1$d partition and logical volume affecting %2$s.",
-          "Includes reducing %1$d partitions and logical volumes affecting %2$s.",
+          "Includes a non-destructive reduction of %1$d partition and logical volume affecting %2$s.",
+          "Includes a non-destructive reduction of %1$d partitions and logical volumes affecting %2$s.",
           count,
         ),
         count,
@@ -139,8 +143,8 @@ function resize(systems: string[], devices: System.Device[]): TranslatedString |
         n_(
           // TRANSLATORS: %d is the number of partitions and logical volumes
           // being made smaller, counted together.
-          "Includes reducing %d partition and logical volume.",
-          "Includes reducing %d partitions and logical volumes.",
+          "Includes a non-destructive reduction of %d partition and logical volume.",
+          "Includes a non-destructive reduction of %d partitions and logical volumes.",
           count,
         ),
         count,
@@ -206,8 +210,12 @@ export default function Consequences(): React.ReactNode {
         </SheetOpener>
         {_(".")}
       </StackItem>
-      {deleted && <Text textStyle="textColorStatusDanger">{deleted}</Text>}
-      {!deleted && resized && <Text>{resized}</Text>}
+      {deleted && (
+        <Text isBold textStyle="textColorStatusDanger">
+          {deleted}
+        </Text>
+      )}
+      {!deleted && resized && <Text isBold>{resized}</Text>}
     </Stack>
   );
 }
