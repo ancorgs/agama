@@ -109,6 +109,7 @@ export type SpaceDecisionProps = {
   collection: DeviceCollection;
   index: number;
   isAssertive?: boolean;
+  onCustom?: () => void;
 };
 
 /**
@@ -130,7 +131,12 @@ export type SpaceDecisionProps = {
  * decided how to decide, not what to decide, which is why it has to be
  * remembered rather than read back. {@link useSpacePolicy} does that.
  */
-export default function SpaceDecision({ collection, index, isAssertive }: SpaceDecisionProps) {
+export default function SpaceDecision({
+  collection,
+  index,
+  isAssertive,
+  onCustom,
+}: SpaceDecisionProps) {
   const { openSheet } = useSheet();
   const deviceConfig = useDeviceConfig(collection, index);
   const { policy: current, choose: answer } = useSpacePolicy(
@@ -147,7 +153,10 @@ export default function SpaceDecision({ collection, index, isAssertive }: SpaceD
        made. That is the panel for the device, which shows what is on it today
        along with everything else. The control is read from there as well as
        from the page, where following up means staying put. */
-    if (policy === "custom") openSheet({ collection, index });
+    if (policy === "custom") {
+      openSheet({ collection, index });
+      if (onCustom) onCustom();
+    }
   };
 
   const reused = configModel.partitionable.isReusingPartitions(

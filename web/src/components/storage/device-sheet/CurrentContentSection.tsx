@@ -479,7 +479,7 @@ export default function CurrentContentSection({
      reader chose the same thing for every partition, and the list behind it is
      there to be checked rather than read. So it starts away. */
   const isCustom = policy === "custom";
-  const [expanded, setExpanded] = React.useState(false);
+  const [expanded, setExpanded] = React.useState(isCustom);
   const tableId = React.useId();
 
   return (
@@ -494,7 +494,12 @@ export default function CurrentContentSection({
               <Text isBold>{_("What to do with the previous content")}</Text>
             </FlexItem>
             <FlexItem align={{ default: "alignRight" }}>
-              <SpaceDecision collection={subject.collection} index={subject.index} isAssertive />
+              <SpaceDecision
+                collection={subject.collection}
+                index={subject.index}
+                isAssertive
+                onCustom={() => setExpanded(true)}
+              />
             </FlexItem>
           </Flex>
         </StackItem>
