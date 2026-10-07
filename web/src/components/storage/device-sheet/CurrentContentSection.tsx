@@ -488,51 +488,54 @@ export default function CurrentContentSection({
           logical volumes are governed the same way its disks' partitions are,
           so the decision is offered there too. */}
       {rows.some((row) => !isFreeSpace(row)) && (
-        <StackItem>
-          <Flex>
-            <FlexItem>
-              <Text isBold>{_("What to do with the previous content")}</Text>
-            </FlexItem>
-            <FlexItem align={{ default: "alignRight" }}>
-              <SpaceDecision
-                collection={subject.collection}
-                index={subject.index}
-                isAssertive
-                onCustom={() => setExpanded(true)}
-              />
-            </FlexItem>
-          </Flex>
-        </StackItem>
+        <>
+          <StackItem>
+            <Flex>
+              <FlexItem>
+                <Text isBold>{_("What to do with the previous content")}</Text>
+              </FlexItem>
+              <FlexItem align={{ default: "alignRight" }}>
+                <SpaceDecision
+                  collection={subject.collection}
+                  index={subject.index}
+                  isAssertive
+                  onCustom={() => setExpanded(true)}
+                />
+              </FlexItem>
+            </Flex>
+          </StackItem>
+          <StackItem
+            style={{
+              marginBlockStart: "var(--pf-t--global--spacer--sm)",
+              paddingLeft: "var(--pf-t--global--spacer--md)",
+            }}
+          >
+            {isCustom ? (
+              // TRANSLATORS: said under the "Custom" answer, where what happens to
+              // each partition is decided one at a time in the list below.
+              _("Use the table below to decide what to do with each partition.")
+            ) : (
+              <>
+                {policyMeaning(policy)}{" "}
+                <Button
+                  variant="link"
+                  isInline
+                  aria-expanded={expanded}
+                  aria-controls={tableId}
+                  onClick={() => setExpanded(!expanded)}
+                >
+                  {expanded
+                    ? // TRANSLATORS: puts away the list of what is on the device today.
+                      _("(hide details)")
+                    : // TRANSLATORS: shows the list of what is on the device today,
+                      // partition by partition.
+                      _("(more details)")}
+                </Button>
+              </>
+            )}
+          </StackItem>
+        </>
       )}
-      {/* What the answer comes to, before anything it is an answer about. The
-          reader has just given it, and a list of partitions arriving without
-          a word first leaves them working out what it is a list of and what
-          the rows have to do with what they chose. */}
-      <StackItem>
-        {isCustom ? (
-          // TRANSLATORS: said under the "Custom" answer, where what happens to
-          // each partition is decided one at a time in the list below.
-          _("Use the table below to decide what to do with each partition.")
-        ) : (
-          <>
-            {policyMeaning(policy)}{" "}
-            <Button
-              variant="link"
-              isInline
-              aria-expanded={expanded}
-              aria-controls={tableId}
-              onClick={() => setExpanded(!expanded)}
-            >
-              {expanded
-                ? // TRANSLATORS: puts away the list of what is on the device today.
-                  _("Hide details")
-                : // TRANSLATORS: shows the list of what is on the device today,
-                  // partition by partition.
-                  _("More details")}
-            </Button>
-          </>
-        )}
-      </StackItem>
       <StackItem>
         {/* Put away rather than taken down, so the link above has something to
             name as the thing it opens, and so a plain element carries the

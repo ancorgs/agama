@@ -69,7 +69,7 @@ function meaning(policy: ConfigModel.SpacePolicy): TranslatedString {
     case "resize":
       return _("The size of some existing partitions may be reduced.");
     case "keep":
-      return _("Only the currently available space and partitions explicitly reused will be used.");
+      return _("Only the currently available space will be used.");
     case "custom":
       return _("Decide what happens to each partition, one by one.");
   }
