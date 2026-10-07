@@ -69,7 +69,7 @@ export default function DriveMenu({ entry, device, subject }: DriveMenuProps): R
   const config = useConfigModel();
   const deleteDrive = useDeleteDrive();
   const deleteMdRaid = useDeleteMdRaid();
-  const { cannotMove, open, selector } = useRetarget(entry, device);
+  const { selector } = useRetarget(entry, device);
   const { openSheet } = useSheet();
 
   const name = baseName(entry.name);
@@ -77,7 +77,6 @@ export default function DriveMenu({ entry, device, subject }: DriveMenuProps): R
   // installation. %s is a device name, such as "sda".
   const label = sprintf(_("Actions for %s"), name);
   const location = configModel.partitionable.findLocation(config, entry.name);
-  const note = _("TODO: I would consider to remove this from here");
 
   const items = [
     /* First, because it is what clicking the row does. A menu whose first item
@@ -108,21 +107,6 @@ export default function DriveMenu({ entry, device, subject }: DriveMenuProps): R
           <Divider key="before-retarget" />,
         ]
       : []),
-    <MenuButtonItem
-      key="retarget"
-      isAriaDisabled={cannotMove !== null}
-      /* Why it cannot be done where it cannot, and otherwise what it costs,
-         which the title cannot say: the plan is not being rebuilt, it is being
-         moved, and a reader who has spent time on this device's content needs
-         to know it comes along. */
-      description={cannotMove || note || undefined}
-      onClick={cannotMove ? undefined : open}
-    >
-      {/* TRANSLATORS: offered on a device of the installation: put everything
-          planned for it somewhere else instead. */}
-      {_("Use another device")}
-    </MenuButtonItem>,
-    <Divider key="before-vg" />,
     <NewVgMenuOption key="volume-group" device={entry} />,
   ];
 
