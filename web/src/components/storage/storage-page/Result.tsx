@@ -74,7 +74,7 @@ export default function Result(): React.ReactNode {
     return (
       <Alert
         isInline
-        variant="success"
+        variant="info"
         component="h3"
         title={_("Text about proposal successfully computed")}
       >
