@@ -335,7 +335,7 @@ function PartitionRow({
           this partition and nothing else, so the reader should not have to
           cross the row to collect it, nor keep the name in mind on the way. */}
       <Th scope="row" modifier="nowrap">
-        <Text>{baseName(part.name)}:</Text>
+        <Text>{baseName(part.name)}</Text>
         {part.block?.encrypted && (
           <>
             {" "}
@@ -343,21 +343,12 @@ function PartitionRow({
             <Icon name="lock" size="xs" aria-label={_("encrypted")} />
           </>
         )}
-        {status && (
-          <>
-            {" "}
-            <span className={status.destroys ? DESTROYS_CLASS : undefined}>{status.text}</span>
-          </>
-        )}
       </Th>
-      {/* What is on it. What becomes of the partition is said beside its name,
-          so it is not said here too. A system the machine reports sits beside
-          the file system as a mark: naming Windows is what makes a deletion
-          mean something.
-
-          Where the installation empties it, what it holds today is struck
-          through beside what it is given, so the loss reads against the thing
-          lost rather than as a verb in another column. */}
+      <Td>
+        {status && (
+          <span className={status.destroys ? DESTROYS_CLASS : undefined}>{status.text}</span>
+        )}
+      </Td>
       <Td>
         <Flex gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsCenter" }}>
           <FlexItem>
@@ -558,11 +549,8 @@ export default function CurrentContentSection({
                 whose whole job is to be read. */}
             <Thead>
               <Tr>
-                {/* Named for what the column is a list of, not for everything it
-                  says. What is to become of each one rides after its name
-                  rather than in a column of its own, and a heading naming both
-                  would be a sentence where a name goes. */}
                 <Th modifier="nowrap">{_("Partition")}</Th>
+                <Th modifier="nowrap">{_("Action")}</Th>
                 <Th modifier="nowrap">{_("Content")}</Th>
                 <Th className={alignmentStyles.textAlignEnd} modifier="nowrap">
                   {_("Size")}
@@ -583,9 +571,10 @@ export default function CurrentContentSection({
                         <Text textStyle="textColorSubtle">
                           {/* TRANSLATORS: a row for room on a device that no
                             partition takes. */}
-                          {_("Free space: use if needed")}
+                          {_("Free space")}
                         </Text>
                       </Th>
+                      <Td>{_("use if needed")}</Td>
                       <Td />
                       <Td className={alignmentStyles.textAlignEnd}>{deviceSize(row.size)}</Td>
                       <Td />
