@@ -30,7 +30,7 @@ import Text from "~/components/core/Text";
 import Icon from "~/components/layout/Icon";
 import MenuButton, { MenuButtonItem } from "~/components/core/MenuButton";
 import RowMenuToggle from "~/components/storage/entries-table/RowMenuToggle";
-import RetargetOffer from "~/components/storage/shared/RetargetOffer";
+import MoveToOtherDevice from "~/components/storage/device-sheet/MoveToOtherDevice";
 import { filesystemType, partitionIdLabel, sizeDescription } from "~/components/storage/utils";
 import { STORAGE as PATHS } from "~/routes/paths";
 import { generateEncodedPath } from "~/utils";
@@ -299,7 +299,7 @@ export default function PlannedContentSection({
           <FlexItem>{add("secondary")}</FlexItem>
           {!isVolumeGroup && (
             <FlexItem>
-              <RetargetOffer entry={device} device={entry.device} variant="secondary" />
+              <MoveToOtherDevice entry={device} device={entry.device} />
             </FlexItem>
           )}
         </Flex>

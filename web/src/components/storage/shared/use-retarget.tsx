@@ -23,7 +23,6 @@
 import React from "react";
 import { sprintf } from "sprintf-js";
 import DeviceSelectorModal from "~/components/storage/DeviceSelectorModal";
-import { whyItCannotMove } from "~/components/storage/shared/retarget";
 import { baseName } from "~/components/storage/utils";
 import { isDrive, isMd, isVolumeGroup } from "~/model/storage/device";
 import configModel from "~/model/storage/config-model";
@@ -34,8 +33,6 @@ import type { Partitionable } from "~/model/storage/config-model";
 import type { Storage } from "~/model/system";
 
 type Retarget = {
-  /** Why the plan cannot move off this device, where it cannot. */
-  cannotMove: TranslatedString | null;
   /** What the act costs, where there is anything here to carry. */
   note: TranslatedString | null;
   /** Offers the reader the choice of device. */
@@ -48,18 +45,19 @@ type Retarget = {
  * Moving everything planned for one device to another one.
  *
  * The page offers this act in more than one place, and the old interface let
- * two of them disagree about whether it was even possible: one refused it while
- * another opened a dialog holding a single device. Everything that offers it
- * asks here instead, so there is one answer to give.
+ * two of them disagree about what it would do: one dialog listed devices the
+ * other had already given away. Everything that offers it asks here instead, so
+ * the act itself is written once.
  *
- * What is left to the caller is the control, because the two are genuinely
- * different: a button carries its reason in a line beside it, a menu item in
- * its own description.
+ * What is left to the caller is the control and when to close it. Those are
+ * where the offers genuinely differ: the page is offering a different disk for
+ * the installation, the panel a different home for part of it, and the two are
+ * named differently, weighted differently and refused on different grounds.
  *
  * @example
- * const { cannotMove, open, selector } = useRetarget(entry, device);
+ * const { open, selector } = useRetarget(entry, device);
  *
- * <Button isAriaDisabled={cannotMove !== null} onClick={open}>{_("Use another device")}</Button>
+ * <Button onClick={open}>{_("Use another device")}</Button>
  * {selector}
  */
 function useRetarget(entry: Partitionable.Device, device: Storage.Device | null): Retarget {
@@ -87,8 +85,6 @@ function useRetarget(entry: Partitionable.Device, device: Storage.Device | null)
   const targets = available.filter((candidate) => !taken.includes(candidate.name));
 
   return {
-    // FIXME: Hack to disable de button without displaying the string
-    cannotMove: whyItCannotMove(config, entry) ? _("") : null,
     note: plansContent
       ? sprintf(
           // TRANSLATORS: what happens to the plan when the reader picks a

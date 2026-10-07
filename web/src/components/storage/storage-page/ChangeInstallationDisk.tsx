@@ -21,29 +21,24 @@
  */
 
 import React from "react";
-import { Button, Flex, HelperText, HelperTextItem } from "@patternfly/react-core";
+import { Button, Flex } from "@patternfly/react-core";
 import Icon from "~/components/layout/Icon";
 import { useRetarget } from "~/components/storage/shared/use-retarget";
 import { _ } from "~/i18n";
+import configModel from "~/model/storage/config-model";
 import type { Partitionable } from "~/model/storage/config-model";
 import type { Storage } from "~/model/system";
 
-export type RetargetOfferProps = {
-  /** The device the plan would move off, as the configuration describes it. */
+export type ChangeInstallationDiskProps = {
+  /** The device the installation would move off, as the configuration has it. */
   entry: Partitionable.Device;
   /** The same device as the machine reports it, where the machine has it. */
   device: Storage.Device | null;
-  /**
-   * How much weight it carries. It answers the sentence the page opens with, so
-   * it leads there; beside the content it would move, it is one offer among
-   * several.
-   */
-  variant?: "primary" | "secondary";
 };
 
 /**
- * Putting the installation somewhere else, offered where the page has named
- * one device and said what it will hold.
+ * Putting the installation on a different disk, offered where the page has
+ * named one and said what it will hold.
  *
  * That sentence raises one question about the disk, which is whether it is the
  * right one, and this is the act that answers it. So it leads the row and
@@ -56,41 +51,40 @@ export type RetargetOfferProps = {
  * that lays its mark out the first way, the two read as a pair of different
  * things rather than as two offers of the same kind.
  *
- * Where the plan cannot move, the button keeps its name and says why underneath,
- * and stays reachable: a control the browser disables is skipped by keyboard
- * and screen reader, so the explanation written for that reader is never met.
+ * Reusing partitions is what closes it. Those partitions are the disk they are
+ * on, so a plan built around them has nowhere else to go, and the page says so
+ * once underneath for every option that closes together with this one. Saying
+ * it again here would be the same sentence twice, a hand's width apart.
+ *
+ * It stays reachable while it is closed rather than being disabled outright: a
+ * control the browser disables is skipped by keyboard and screen reader, and
+ * the sentence explaining it is then met by a reader who never found what it
+ * was about.
+ *
+ * It is the sheet's {@link MoveToOtherDevice} in a different place and nothing
+ * more today. They are two components because they are heading apart: this one
+ * is about where the installation goes, that one about where some part of it
+ * goes, and only the first of those is the whole plan.
  */
-export default function RetargetOffer({
+export default function ChangeInstallationDisk({
   entry,
   device,
-  variant = "primary",
-}: RetargetOfferProps): React.ReactNode {
-  const { cannotMove, open, selector } = useRetarget(entry, device);
-  const reasonId = React.useId();
+}: ChangeInstallationDiskProps): React.ReactNode {
+  const { open, selector } = useRetarget(entry, device);
+  const reused = configModel.partitionable.isReusingPartitions(entry);
 
   return (
     <>
-      <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
-        <Button
-          variant={variant}
-          isAriaDisabled={cannotMove !== null}
-          aria-describedby={cannotMove ? reasonId : undefined}
-          onClick={cannotMove ? undefined : open}
-        >
-          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-            <Icon name="change_circle" />{" "}
-            {
-              // FIXME: hacky way of choosing the string
-              variant === "primary" ? _("Change installation disk") : _("Move to other device")
-            }
-          </Flex>
-        </Button>
-        {cannotMove && (
-          <HelperText>
-            <HelperTextItem id={reasonId}>{cannotMove}</HelperTextItem>
-          </HelperText>
-        )}
-      </Flex>
+      <Button variant="primary" isAriaDisabled={reused} onClick={reused ? undefined : open}>
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Icon name="change_circle" />{" "}
+          {
+            // TRANSLATORS: offered under the summary of the installation: put
+            // the whole of it on a different disk.
+            _("Change installation disk")
+          }
+        </Flex>
+      </Button>
       {selector}
     </>
   );

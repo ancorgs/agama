@@ -71,7 +71,7 @@ export type SummaryLayoutProps = {
  * <SummaryLayout
  *   title={<ConfigurationTitle />}
  *   count={<Consequences />}
- *   actions={<RetargetOffer device={device} />}
+ *   actions={<ChangeInstallationDisk entry={entry} device={device} />}
  * />
  */
 export default function SummaryLayout({

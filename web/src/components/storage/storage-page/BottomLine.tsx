@@ -25,7 +25,7 @@ import { HelperText, HelperTextItem, Stack, Flex, FlexItem } from "@patternfly/r
 import ConfigureDeviceMenu from "~/components/storage/ConfigureDeviceMenu";
 import { useSingleDevice, useHasExistingContent } from "~/components/storage/storage-page/queries";
 import SpaceDecision from "~/components/storage/storage-page/SpaceDecision";
-import RetargetOffer from "~/components/storage/shared/RetargetOffer";
+import ChangeInstallationDisk from "~/components/storage/storage-page/ChangeInstallationDisk";
 import { _ } from "~/i18n";
 import { useDevice } from "~/hooks/model/system/storage";
 import configModel from "~/model/storage/config-model";
@@ -59,7 +59,7 @@ export default function BottomLinee(): React.ReactNode {
           justifyContent={{ default: "justifyContentCenter" }}
           flexWrap={{ default: "wrap" }}
         >
-          <RetargetOffer entry={singleDevice.device} device={device} />
+          <ChangeInstallationDisk entry={singleDevice.device} device={device} />
           <ConfigureDeviceMenu
             // TRANSLATORS: offered at the foot of the list of what the
             // installation is made of: bring more disks into it.
