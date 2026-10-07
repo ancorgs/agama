@@ -76,7 +76,7 @@ export default function Result(): React.ReactNode {
         isInline
         variant="info"
         component="h3"
-        title={_("Text about proposal successfully computed")}
+        title={_("Data in the disks will be modified according to the settings below")}
       >
         <Consequences />
       </Alert>

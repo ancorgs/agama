@@ -192,6 +192,7 @@ export default function Consequences(): React.ReactNode {
   return (
     <Stack>
       <StackItem>
+        {_("As a result, ")}
         <SheetOpener subject="result" tab="actions">
           {sprintf(
             // FIXME: this is not translatable. Shortcut taken for early demo
@@ -203,6 +204,7 @@ export default function Consequences(): React.ReactNode {
         <SheetOpener subject="result" tab="layout">
           {_("final storage layout")}
         </SheetOpener>
+        {_(".")}
       </StackItem>
       {deleted && <Text textStyle="textColorStatusDanger">{deleted}</Text>}
       {!deleted && resized && <Text>{resized}</Text>}
