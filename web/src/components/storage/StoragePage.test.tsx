@@ -108,9 +108,6 @@ jest.mock("./ProposalFailedInfo", () => () => <div>proposal failed info</div>);
 jest.mock("./UnsupportedModelInfo", () => () => <div>unsupported model info</div>);
 jest.mock("./FixableConfigInfo", () => () => <div>fixable config info</div>);
 jest.mock("./ConnectedDevicesMenu", () => () => <div>connected devices menu</div>);
-jest.mock("./storage-page/ConfigurationSummary", () => () => (
-  <div>what the configuration does</div>
-));
 jest.mock("./storage-page/ResultSheet", () => () => <div>result</div>);
 
 beforeEach(() => {

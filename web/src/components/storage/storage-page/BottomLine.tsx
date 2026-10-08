@@ -21,45 +21,41 @@
  */
 
 import React from "react";
-import { HelperText, HelperTextItem, Stack, Flex, FlexItem } from "@patternfly/react-core";
+import { Stack, Flex, FlexItem } from "@patternfly/react-core";
 import ConfigureDeviceMenu from "~/components/storage/ConfigureDeviceMenu";
-import { useSingleDevice, useHasExistingContent } from "~/components/storage/storage-page/queries";
 import SpaceDecision from "~/components/storage/storage-page/SpaceDecision";
 import ChangeInstallationDisk from "~/components/storage/storage-page/ChangeInstallationDisk";
+import { isEmpty } from "radashi";
 import { _ } from "~/i18n";
 import { useDevice } from "~/hooks/model/system/storage";
+import { useConfigModel } from "~/hooks/model/storage/config-model";
 import configModel from "~/model/storage/config-model";
-import type { Partitionable } from "~/model/storage/config-model";
 
 export default function BottomLinee(): React.ReactNode {
-  const singleDevice = useSingleDevice();
-  const device = useDevice(singleDevice?.device.name || "");
-  const hasExistingContent = useHasExistingContent(singleDevice?.device.name);
-  const spaceDecision = singleDevice && hasExistingContent;
-  const reused =
-    singleDevice &&
-    configModel.partitionable.isReusingPartitions(singleDevice.device as Partitionable.Device);
+  const config = useConfigModel();
+  const canChangeTarget = configModel.canChangeTargetDrive(config);
+  const device = useDevice(config.drives[0]?.name || "");
 
   return (
     <Stack hasGutter>
-      {spaceDecision && (
+      {canChangeTarget && !isEmpty(device?.partitions) && (
         <Flex
           gap={{ default: "gapSm" }}
           alignItems={{ default: "alignItemsCenter" }}
           justifyContent={{ default: "justifyContentCenter" }}
           flexWrap={{ default: "wrap" }}
         >
-          <SpaceDecision collection={singleDevice.collection} index={singleDevice.index} />
+          <SpaceDecision collection="drives" index={0} />
         </Flex>
       )}
-      {singleDevice && (
+      {canChangeTarget && (
         <Flex
           gap={{ default: "gapSm" }}
           alignItems={{ default: "alignItemsCenter" }}
           justifyContent={{ default: "justifyContentCenter" }}
           flexWrap={{ default: "wrap" }}
         >
-          <ChangeInstallationDisk entry={singleDevice.device} device={device} />
+          <ChangeInstallationDisk />
           <ConfigureDeviceMenu
             // TRANSLATORS: offered at the foot of the list of what the
             // installation is made of: bring more disks into it.
@@ -68,21 +64,7 @@ export default function BottomLinee(): React.ReactNode {
           />
         </Flex>
       )}
-      {reused && (
-        <Flex
-          gap={{ default: "gapSm" }}
-          alignItems={{ default: "alignItemsCenter" }}
-          justifyContent={{ default: "justifyContentCenter" }}
-          flexWrap={{ default: "wrap" }}
-        >
-          <HelperText>
-            <HelperTextItem>
-              {_("Some options are not available because some partitions will be reused.")}
-            </HelperTextItem>
-          </HelperText>
-        </Flex>
-      )}
-      {!singleDevice && (
+      {!canChangeTarget && (
         <Flex className="agm-entries-table__add">
           <FlexItem>
             <ConfigureDeviceMenu

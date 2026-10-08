@@ -350,6 +350,13 @@ function useConvertDevice() {
   };
 }
 
+function useChangeTargetDrive() {
+  const model = useConfigModel();
+  return (targetName: string) => {
+    putStorageModel(configModel.changeTargetDrive(model, targetName));
+  };
+}
+
 const selectIsGrub2WithTpm = (config: ConfigModel.Config | null): boolean =>
   !isNullish(config) && configModel.isGrub2WithTpm(config);
 
@@ -402,6 +409,7 @@ export {
   useSetFilesystem,
   useSetSpacePolicy,
   useConvertDevice,
+  useChangeTargetDrive,
   useIsGrub2WithTpm,
   useIsTpmAvailable,
 };
