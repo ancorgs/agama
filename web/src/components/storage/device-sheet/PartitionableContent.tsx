@@ -36,8 +36,8 @@ import { useConfigModel } from "~/hooks/model/storage/config-model";
 import { useFlattenDevices as useSystemDevices } from "~/hooks/model/system/storage";
 import { _ } from "~/i18n";
 import type { Entry } from "~/components/storage/device-sheet/entry";
-import type { SheetEntry } from "~/components/storage/shared/use-sheet";
 import type { ConfigModel, Partitionable } from "~/model/storage/config-model";
+import type { DeviceDetailProps } from "~/components/storage/device-sheet/DeviceDetail";
 
 /** One thing the new system gets here, whatever the entry calls its parts. */
 type Planned = ConfigModel.Partition | ConfigModel.LogicalVolume;
@@ -71,16 +71,10 @@ function plannedOn(entry: Entry): Planned[] {
   });
 }
 
-export type PlannedPartitionsSectionProps = {
-  entry: Entry;
-  /** Where the entry is written, which is what the space decision acts on. */
-  subject: SheetEntry;
-};
-
-export default function PlannedPartitionsSection({
+export default function PartitionableContent({
   entry,
   subject,
-}: PlannedPartitionsSectionProps): React.ReactNode {
+}: DeviceDetailProps): React.ReactNode {
   const config = useConfigModel();
   const systemDevices = useSystemDevices();
   const device = entry.config as Partitionable.Device;

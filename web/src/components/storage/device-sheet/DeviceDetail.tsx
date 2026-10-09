@@ -22,11 +22,17 @@
 
 import React from "react";
 import { Stack, StackItem } from "@patternfly/react-core";
-import PlannedContentSection from "~/components/storage/device-sheet/PlannedContentSection";
-import PlannedPartitionsSection from "~/components/storage/device-sheet/PlannedPartitionsSection";
-import CurrentContentSection, {
-  hasCurrentContent,
-} from "~/components/storage/device-sheet/CurrentContentSection";
+import UsedPartitionableCurrent from "~/components/storage/device-sheet/UsedPartitionableCurrent";
+import UnusedPartitionableCurrent from "~/components/storage/device-sheet/UnusedPartitionableCurrent";
+import NewVolumeGroupCurrent from "~/components/storage/device-sheet/NewVolumeGroupCurrent";
+import VolumeGroupCurrent from "~/components/storage/device-sheet/VolumeGroupCurrent";
+import PartitionableContent from "~/components/storage/device-sheet/PartitionableContent";
+import PartitionableNoContent from "~/components/storage/device-sheet/PartitionableNoContent";
+import PartitionableMountContent from "~/components/storage/device-sheet/PartitionableMountContent";
+import VolumeGroupContent from "~/components/storage/device-sheet/VolumeGroupContent";
+import configModel from "~/model/storage/config-model";
+import { useConfigModel } from "~/hooks/model/storage/config-model";
+import type { ConfigModel, Partitionable } from "~/model/storage/config-model";
 import type { Entry } from "~/components/storage/device-sheet/entry";
 import type { SheetEntry } from "~/components/storage/shared/use-sheet";
 
@@ -38,42 +44,40 @@ export type DeviceDetailProps = {
 
 /**
  * What one entry of the plan holds, read top to bottom as time moving forwards.
- *
- * Two blocks, one under the other: what the new system gets here, and then what
- * is on the device today and what becomes of it. They were a strip of tabs, and
- * reading them together is what the panel is for. The second block is about
- * making room for the first, so a reader who has to change it was being asked to
- * leave the thing it is about to see the thing that decides it; and a reader who
- * only came to check was being asked to click to find out whether there was
- * anything to check at all.
- *
- * Nothing in the words says partition or volume: the same panel serves a disk, a
- * RAID and a volume group, and what each holds goes by a different word.
- *
- * Neither block carries a heading of its own. Each opens on a sentence saying
- * what it holds, and the table under it is named the same thing, so a title
- * above both would say it a third time.
  */
 export default function DeviceDetail({ entry, subject }: DeviceDetailProps): React.ReactNode {
-  /* Only where the machine has something on the entry today. On an empty disk,
-     or a volume group being defined, the whole answer is that there is nothing,
-     and a block saying so costs a rule across the panel and a sentence to
-     report an absence the reader did not cause. */
-  const hasCurrent = hasCurrentContent(entry);
+  const config = useConfigModel();
+  const vg = entry.isVolumeGroup ? (entry.config as ConfigModel.VolumeGroup) : null;
+  const part = entry.isVolumeGroup ? null : (entry.config as Partitionable.Device);
+  const isUsedPartitionable = part && configModel.partitionable.isUsed(config, part.name);
+  const isNewVolume = vg && !vg.name;
+  const isMountedPartitionable = part && !!part.mountPath;
 
   return (
     <Stack hasGutter>
-      {/* Only where the machine has something on the entry today. */}
-      {hasCurrent && (
-        <>
-          <StackItem>
-            <CurrentContentSection entry={entry} subject={subject} />
-          </StackItem>
-        </>
+      {!entry.isVolumeGroup && isUsedPartitionable && (
+        <UsedPartitionableCurrent entry={entry} subject={subject} />
+      )}
+      {!entry.isVolumeGroup && !isUsedPartitionable && (
+        <UnusedPartitionableCurrent entry={entry} subject={subject} />
+      )}
+      {entry.isVolumeGroup && isNewVolume && (
+        <NewVolumeGroupCurrent entry={entry} subject={subject} />
+      )}
+      {entry.isVolumeGroup && !isNewVolume && (
+        <VolumeGroupCurrent entry={entry} subject={subject} />
       )}
       <StackItem>
-        {entry.isVolumeGroup && <PlannedContentSection entry={entry} subject={subject} />}
-        {!entry.isVolumeGroup && <PlannedPartitionsSection entry={entry} subject={subject} />}
+        {!entry.isVolumeGroup && isMountedPartitionable && (
+          <PartitionableMountContent entry={entry} subject={subject} />
+        )}
+        {!entry.isVolumeGroup && !isMountedPartitionable && isUsedPartitionable && (
+          <PartitionableContent entry={entry} subject={subject} />
+        )}
+        {!entry.isVolumeGroup && !isMountedPartitionable && !isUsedPartitionable && (
+          <PartitionableNoContent entry={entry} subject={subject} />
+        )}
+        {entry.isVolumeGroup && <VolumeGroupContent entry={entry} subject={subject} />}
       </StackItem>
     </Stack>
   );
