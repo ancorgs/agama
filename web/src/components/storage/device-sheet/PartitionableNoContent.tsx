@@ -21,13 +21,35 @@
  */
 
 import React from "react";
-import { Stack, EmptyState, EmptyStateBody } from "@patternfly/react-core";
+import {
+  Stack,
+  EmptyState,
+  EmptyStateBody,
+  EmptyStateActions,
+  EmptyStateFooter,
+} from "@patternfly/react-core";
+import Link from "~/components/core/Link";
 import Text from "~/components/core/Text";
+import Icon from "~/components/layout/Icon";
+import { STORAGE as PATHS } from "~/routes/paths";
+import { generateEncodedPath } from "~/utils";
 import type { DeviceDetailProps } from "~/components/storage/device-sheet/DeviceDetail";
 import { _ } from "~/i18n";
 
-export default function VolumeGroupContent({ entry, subject }: DeviceDetailProps): React.ReactNode {
+export default function PartitionableNoContent({
+  entry,
+  subject,
+}: DeviceDetailProps): React.ReactNode {
   console.log("e", entry, "s", subject);
+
+  /* The same form the panel offers once there is something to list, reached
+     the same way: a device with nothing planned on it yet is the one place a
+     reader is most likely to want it, not a different act. */
+  const addPath = generateEncodedPath(PATHS.addPartition, {
+    collection: subject.collection,
+    index: String(subject.index),
+  });
+
   return (
     <Stack>
       <Text isBold>{_("TODO")}</Text>
@@ -39,6 +61,13 @@ export default function VolumeGroupContent({ entry, subject }: DeviceDetailProps
         <EmptyStateBody>
           {_("Format, add a partition or reuse one of the partitions already in the disk.")}
         </EmptyStateBody>
+        <EmptyStateFooter>
+          <EmptyStateActions>
+            <Link to={addPath} keepQuery variant="secondary" icon={<Icon name="add" size="xs" />}>
+              {_("Add partition")}
+            </Link>
+          </EmptyStateActions>
+        </EmptyStateFooter>
       </EmptyState>
     </Stack>
   );
