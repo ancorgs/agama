@@ -42,13 +42,19 @@ export default function PartitionableNoContent({
 }: DeviceDetailProps): React.ReactNode {
   console.log("e", entry, "s", subject);
 
+  const params = {
+    collection: subject.collection,
+    index: String(subject.index),
+  };
+
   /* The same form the panel offers once there is something to list, reached
      the same way: a device with nothing planned on it yet is the one place a
      reader is most likely to want it, not a different act. */
-  const addPath = generateEncodedPath(PATHS.addPartition, {
-    collection: subject.collection,
-    index: String(subject.index),
-  });
+  const addPath = generateEncodedPath(PATHS.addPartition, params);
+
+  /* The other way to use a device, which is to give the whole of it to one
+     file system and no partition table at all. */
+  const formatPath = generateEncodedPath(PATHS.formatDevice, params);
 
   return (
     <Stack>
@@ -65,6 +71,18 @@ export default function PartitionableNoContent({
           <EmptyStateActions>
             <Link to={addPath} keepQuery variant="secondary" icon={<Icon name="add" size="xs" />}>
               {_("Add partition")}
+            </Link>
+            <Link
+              to={formatPath}
+              keepQuery
+              variant="secondary"
+              icon={<Icon name="hard_drive" size="xs" />}
+            >
+              {
+                // TRANSLATORS: offered on a device nothing is planned on yet:
+                // give the whole device to one file system, with no partitions.
+                _("Format device")
+              }
             </Link>
           </EmptyStateActions>
         </EmptyStateFooter>
