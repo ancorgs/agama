@@ -24,7 +24,6 @@ import React from "react";
 import { Stack, StackItem } from "@patternfly/react-core";
 import UsedPartitionableCurrent from "~/components/storage/device-sheet/UsedPartitionableCurrent";
 import UnusedPartitionableCurrent from "~/components/storage/device-sheet/UnusedPartitionableCurrent";
-import NewVolumeGroupCurrent from "~/components/storage/device-sheet/NewVolumeGroupCurrent";
 import VolumeGroupCurrent from "~/components/storage/device-sheet/VolumeGroupCurrent";
 import PartitionableContent from "~/components/storage/device-sheet/PartitionableContent";
 import PartitionableNoContent from "~/components/storage/device-sheet/PartitionableNoContent";
@@ -32,7 +31,7 @@ import PartitionableMountContent from "~/components/storage/device-sheet/Partiti
 import VolumeGroupContent from "~/components/storage/device-sheet/VolumeGroupContent";
 import configModel from "~/model/storage/config-model";
 import { useConfigModel } from "~/hooks/model/storage/config-model";
-import type { ConfigModel, Partitionable } from "~/model/storage/config-model";
+import type { Partitionable } from "~/model/storage/config-model";
 import type { Entry } from "~/components/storage/device-sheet/entry";
 import type { SheetEntry } from "~/components/storage/shared/use-sheet";
 
@@ -47,10 +46,8 @@ export type DeviceDetailProps = {
  */
 export default function DeviceDetail({ entry, subject }: DeviceDetailProps): React.ReactNode {
   const config = useConfigModel();
-  const vg = entry.isVolumeGroup ? (entry.config as ConfigModel.VolumeGroup) : null;
   const part = entry.isVolumeGroup ? null : (entry.config as Partitionable.Device);
   const isUsedPartitionable = part && configModel.partitionable.isUsed(config, part.name);
-  const isNewVolume = vg && !vg.name;
   const isMountedPartitionable = part && !!part.mountPath;
 
   return (
@@ -61,12 +58,7 @@ export default function DeviceDetail({ entry, subject }: DeviceDetailProps): Rea
       {!entry.isVolumeGroup && !isUsedPartitionable && (
         <UnusedPartitionableCurrent entry={entry} subject={subject} />
       )}
-      {entry.isVolumeGroup && isNewVolume && (
-        <NewVolumeGroupCurrent entry={entry} subject={subject} />
-      )}
-      {entry.isVolumeGroup && !isNewVolume && (
-        <VolumeGroupCurrent entry={entry} subject={subject} />
-      )}
+      {entry.isVolumeGroup && <VolumeGroupCurrent entry={entry} subject={subject} />}
       <StackItem>
         {!entry.isVolumeGroup && isMountedPartitionable && (
           <PartitionableMountContent entry={entry} subject={subject} />

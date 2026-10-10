@@ -54,10 +54,6 @@ export default function VolumeGroupCurrent({ entry }: DeviceDetailProps): React.
   const config = useConfigModel();
   const volumeGroup = entry.config as ConfigModel.VolumeGroup;
 
-  /* A group the machine has carries its device name; one being defined has only
-     the name it is being given. */
-  if (volumeGroup.name) return <StackItem>{_("TODO: Existing volume group")}</StackItem>;
-
   /* Each target is an entry of the plan in its own right, except where the
      group was pointed at a device the configuration says nothing else about. */
   const targets: Related[] = (volumeGroup.targetDevices || []).map((name) => ({
@@ -65,29 +61,35 @@ export default function VolumeGroupCurrent({ entry }: DeviceDetailProps): React.
     subject: configModel.partitionable.findLocation(config, name) || undefined,
   }));
 
-  /* Nothing to point at yet, and a heading above an empty sentence says less
-     than no heading at all. */
-  if (!targets.length) return null;
-
   return (
-    <StackItem>
-      <Stack>
+    <>
+      {targets.length && (
         <StackItem>
-          {/* TRANSLATORS: heading over the disks a volume group will take its
-              room from. */}
-          <Text isBold>{_("Physical volumes")}</Text>
+          <Stack>
+            <StackItem>
+              {/* TRANSLATORS: heading over the disks a volume group will take its
+                  room from. */}
+              <Text isBold>{_("Physical volumes")}</Text>
+            </StackItem>
+            <StackItem
+              style={{
+                marginBlockStart: "var(--pf-t--global--spacer--sm)",
+                paddingLeft: "var(--pf-t--global--spacer--md)",
+              }}
+            >
+              <Interpolate
+                // TRANSLATORS: says where a volume group being defined will make
+                // room for itself. %s is a list of device names, such as "sda and
+                // sdb".
+                sentence={_("Any needed partition will be created at %s.")}
+              >
+                {() => <RelatedNames items={targets} />}
+              </Interpolate>
+            </StackItem>
+          </Stack>
         </StackItem>
-        <StackItem>
-          <Interpolate
-            // TRANSLATORS: says where a volume group being defined will make
-            // room for itself. %s is a list of device names, such as "sda and
-            // sdb".
-            sentence={_("Any needed partition will be created at %s")}
-          >
-            {() => <RelatedNames items={targets} />}
-          </Interpolate>
-        </StackItem>
-      </Stack>
-    </StackItem>
+      )}
+      {volumeGroup.name && <StackItem>{_("TODO: Existing volume group")}</StackItem>}
+    </>
   );
 }
