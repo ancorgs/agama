@@ -21,11 +21,73 @@
  */
 
 import React from "react";
-import { StackItem } from "@patternfly/react-core";
-import type { DeviceDetailProps } from "~/components/storage/device-sheet/DeviceDetail";
+import { Stack, StackItem } from "@patternfly/react-core";
+import Interpolate from "~/components/core/Interpolate";
+import Text from "~/components/core/Text";
+import RelatedNames from "~/components/storage/shared/RelatedNames";
+import { baseName } from "~/components/storage/utils";
+import { useConfigModel } from "~/hooks/model/storage/config-model";
+import configModel from "~/model/storage/config-model";
 import { _ } from "~/i18n";
+import type { DeviceDetailProps } from "~/components/storage/device-sheet/DeviceDetail";
+import type { ConfigModel } from "~/model/storage/config-model";
+import type { Related } from "~/components/storage/shared/users";
 
-export default function VolumeGroupCurrent({ entry, subject }: DeviceDetailProps): React.ReactNode {
-  console.log(entry, subject);
-  return <StackItem>{_("TODO: Existing volume group")}</StackItem>;
+/**
+ * Where a volume group being defined will find its room.
+ *
+ * A group the machine already has is read from the machine. A group being
+ * defined has nothing to read: it exists only in the plan, and what a reader
+ * wants to know about it is which disks it will stand on, because those are the
+ * devices whose current content is at stake.
+ *
+ * So what is said here is not what the group holds but what it will take, named
+ * disk by disk and reachable: a disk named in a sentence is a disk the reader
+ * may want to open, and the panel they are in is not the one that decides what
+ * happens to what is on it.
+ *
+ * "Any needed" rather than a count. How many partitions the group will take,
+ * and how large, is settled by what is asked of it, and a number here would be
+ * a promise this panel cannot keep.
+ */
+export default function VolumeGroupCurrent({ entry }: DeviceDetailProps): React.ReactNode {
+  const config = useConfigModel();
+  const volumeGroup = entry.config as ConfigModel.VolumeGroup;
+
+  /* A group the machine has carries its device name; one being defined has only
+     the name it is being given. */
+  if (volumeGroup.name) return <StackItem>{_("TODO: Existing volume group")}</StackItem>;
+
+  /* Each target is an entry of the plan in its own right, except where the
+     group was pointed at a device the configuration says nothing else about. */
+  const targets: Related[] = (volumeGroup.targetDevices || []).map((name) => ({
+    name: baseName(name),
+    subject: configModel.partitionable.findLocation(config, name) || undefined,
+  }));
+
+  /* Nothing to point at yet, and a heading above an empty sentence says less
+     than no heading at all. */
+  if (!targets.length) return null;
+
+  return (
+    <StackItem>
+      <Stack>
+        <StackItem>
+          {/* TRANSLATORS: heading over the disks a volume group will take its
+              room from. */}
+          <Text isBold>{_("Physical volumes")}</Text>
+        </StackItem>
+        <StackItem>
+          <Interpolate
+            // TRANSLATORS: says where a volume group being defined will make
+            // room for itself. %s is a list of device names, such as "sda and
+            // sdb".
+            sentence={_("Any needed partition will be created at %s")}
+          >
+            {() => <RelatedNames items={targets} />}
+          </Interpolate>
+        </StackItem>
+      </Stack>
+    </StackItem>
+  );
 }
